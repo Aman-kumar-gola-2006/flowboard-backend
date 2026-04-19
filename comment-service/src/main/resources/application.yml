@@ -1,0 +1,26 @@
+# Comment Service Config
+# Aman - 19 April 2026
+
+spring:
+  application:
+    name: comment-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/flowboard_comment?createDatabaseIfNotExist=true
+    username: root
+    password: 05092006
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  port: 8086
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka
+
+card:
+  service:
+    url: http://localhost:8085/api/cards
