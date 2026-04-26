@@ -2,6 +2,7 @@ package com.flowboard.auth.controller;
 
 import com.flowboard.auth.dto.*;
 import com.flowboard.auth.service.AuthService;
+import com.flowboard.auth.service.EmailService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -153,6 +154,34 @@ public class AuthController {
         try {
             String newToken = authService.refreshToken(token);
             return ResponseEntity.ok(new JwtResponse(newToken, "Bearer", null, null, null, null, null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
+    }
+
+    @Autowired
+    private EmailService emailService;
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody java.util.Map<String, String> payload) {
+        String email = payload.get("email");
+        String resetToken = java.util.UUID.randomUUID().toString();
+        try {
+            authService.createPasswordResetToken(email, resetToken);
+            emailService.sendResetPasswordEmail(email, resetToken);
+            return ResponseEntity.ok(new MessageResponse("Reset link sent to your email", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody java.util.Map<String, String> payload) {
+        String token = payload.get("token");
+        String newPassword = payload.get("newPassword");
+        try {
+            MessageResponse response = authService.resetPassword(token, newPassword);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
         }

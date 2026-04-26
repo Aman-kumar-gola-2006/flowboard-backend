@@ -41,8 +41,9 @@ public class ListService {
         try {
             boardClient.getBoardById(request.getBoardId(), userId);
         } catch (Exception e) {
-            log.error("Board access check failed: {}", e.getMessage());
-            throw new RuntimeException("Board not found or access denied");
+            log.error("Board access check failed for board {} and user {}: {}", 
+                      request.getBoardId(), userId, e.getMessage());
+            throw new RuntimeException("Board not found or access denied: " + e.getMessage());
         }
         
         // Find max position and add 1
@@ -75,7 +76,8 @@ public class ListService {
         try {
             boardClient.getBoardById(boardId, userId);
         } catch (Exception e) {
-            throw new RuntimeException("Board not found or access denied");
+            log.error("Failed to fetch lists for board {}: {}", boardId, e.getMessage());
+            throw new RuntimeException("Board not found or access denied: " + e.getMessage());
         }
         
         List<TaskList> lists;

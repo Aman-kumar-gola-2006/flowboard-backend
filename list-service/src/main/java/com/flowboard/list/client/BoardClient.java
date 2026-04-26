@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
  * Talks to Board Service to check permissions.
  * Simple Feign client - no fallback for now.
  */
-@FeignClient(name = "board-client", url = "${board.service.url:http://localhost:8083/api/boards}")
+@FeignClient(name = "board-service", path = "/api/boards")
 public interface BoardClient {
     
     // Check if user has access to the board

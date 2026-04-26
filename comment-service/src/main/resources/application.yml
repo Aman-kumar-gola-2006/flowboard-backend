@@ -17,10 +17,16 @@ server:
   port: 8086
 
 eureka:
+  instance:
+    hostname: localhost
+    ip-address: 127.0.0.1
+    prefer-ip-address: true
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
 
 card:
   service:
-    url: http://localhost:8085/api/cards
+    url: http://card-service/api/cards

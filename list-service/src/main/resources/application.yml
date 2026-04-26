@@ -20,11 +20,17 @@ server:
   port: 8084
 
 eureka:
+  instance:
+    hostname: localhost
+    ip-address: 127.0.0.1
+    prefer-ip-address: true
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka
+    register-with-eureka: true
+    fetch-registry: true
 
 # Board service URL for Feign client
 board:
   service:
-    url: http://localhost:8083/api/boards
+    url: http://board-service/api/boards

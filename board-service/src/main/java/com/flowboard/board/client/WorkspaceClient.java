@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 // FIXED: Direct URL with localhost instead of service name
-@FeignClient(name = "workspace-client", url = "http://localhost:8082/api/workspaces")
+@FeignClient(name = "workspace-service", path = "/api/workspaces")
 public interface WorkspaceClient {
     
     @GetMapping("/{workspaceId}/members/{userId}/exists")
