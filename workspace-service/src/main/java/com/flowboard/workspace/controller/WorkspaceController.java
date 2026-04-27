@@ -19,12 +19,23 @@ public class WorkspaceController {
     private final WorkspaceService workspaceService;
     
     @PostMapping
-    public ResponseEntity<WorkspaceResponse> createWorkspace(
-            @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("Authorization") String authToken,
+    public ResponseEntity<?> createWorkspace(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "Authorization", required = false) String authToken,
             @Valid @RequestBody WorkspaceRequest request) {
-        WorkspaceResponse response = workspaceService.createWorkspace(userId, request, authToken);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        try {
+            if (userId == null) {
+                return ResponseEntity.badRequest().body(new MessageResponse("X-User-Id header is missing. Please re-login.", false));
+            }
+            if (authToken == null) {
+                return ResponseEntity.badRequest().body(new MessageResponse("Authorization header is missing. Please re-login.", false));
+            }
+            
+            WorkspaceResponse response = workspaceService.createWorkspace(userId, request, authToken);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
     }
     
     @GetMapping("/{id}")

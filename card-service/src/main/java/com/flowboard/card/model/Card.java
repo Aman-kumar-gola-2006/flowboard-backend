@@ -56,6 +56,9 @@ public class Card {
     @Column(name = "cover_color", length = 20)
     private String coverColor = "#ffffff";
     
+    @Column(name = "has_checklist")
+    private Boolean hasChecklist = false;
+
     @Column(name = "is_archived")
     private Boolean isArchived = false;
     

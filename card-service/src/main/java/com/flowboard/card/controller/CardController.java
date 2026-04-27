@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.flowboard.card.model.ChecklistItem;
+import com.flowboard.card.repository.ChecklistItemRepository;
+
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +25,36 @@ public class CardController {
     
     @Autowired
     private CardService cardService;
+    
+    @Autowired
+    private ChecklistItemRepository checklistRepo;
+
+    @GetMapping("/{cardId}/checklist")
+    public ResponseEntity<List<ChecklistItem>> getChecklist(@PathVariable Long cardId) {
+        return ResponseEntity.ok(checklistRepo.findByCardIdOrderByPositionAsc(cardId));
+    }
+
+    @PostMapping("/{cardId}/checklist")
+    public ResponseEntity<ChecklistItem> addChecklistItem(@PathVariable Long cardId, @RequestBody Map<String, String> payload) {
+        ChecklistItem item = new ChecklistItem();
+        item.setCardId(cardId);
+        item.setText(payload.get("text"));
+        item.setPosition(checklistRepo.countByCardId(cardId).intValue());
+        return ResponseEntity.ok(checklistRepo.save(item));
+    }
+
+    @PutMapping("/{cardId}/checklist/{itemId}")
+    public ResponseEntity<ChecklistItem> toggleChecklistItem(@PathVariable Long cardId, @PathVariable Long itemId) {
+        ChecklistItem item = checklistRepo.findById(itemId).orElseThrow();
+        item.setIsCompleted(!item.getIsCompleted());
+        return ResponseEntity.ok(checklistRepo.save(item));
+    }
+
+    @DeleteMapping("/{cardId}/checklist/{itemId}")
+    public ResponseEntity<?> deleteChecklistItem(@PathVariable Long cardId, @PathVariable Long itemId) {
+        checklistRepo.deleteById(itemId);
+        return ResponseEntity.ok(Map.of("message", "Item deleted"));
+    }
     
     @PostMapping
     public ResponseEntity<?> createCard(@RequestBody CardRequest request,

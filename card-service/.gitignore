@@ -11,3 +11,8 @@ target/
 .classpath
 .project
 .DS_Store
+
+# Configuration files
+**/application.yml
+**/application.properties
+**/application-*.yml

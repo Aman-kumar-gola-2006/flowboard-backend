@@ -9,3 +9,7 @@
 **/*.env
 **/*.pem
 **/*.key
+# Configuration files
+**/application.yml
+**/application.properties
+**/application-*.yml
