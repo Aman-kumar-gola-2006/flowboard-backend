@@ -186,6 +186,16 @@ public class WorkspaceService {
                 .map(member -> "ADMIN".equals(member.getRole()))
                 .orElse(false);
     }
+
+    public long getTotalCount() {
+        return workspaceRepository.count();
+    }
+
+    public List<WorkspaceResponse> getAllWorkspacesForAdmin(String authToken) {
+        return workspaceRepository.findAll().stream()
+                .map(w -> mapToWorkspaceResponse(w, authToken))
+                .collect(Collectors.toList());
+    }
     
     private WorkspaceResponse mapToWorkspaceResponse(Workspace workspace, String authToken) {
         UserResponse owner = null;

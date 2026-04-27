@@ -53,6 +53,10 @@ spring:
           uri: lb://notification-service
           predicates:
             - Path=/api/notifications/**
+        - id: admin-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/admin/**
 
 server:
   port: 8080

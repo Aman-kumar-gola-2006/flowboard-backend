@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -38,6 +39,12 @@ public class AuthService {
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
 
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Autowired
+    private AuditLogService auditLogService;
+
     public JwtResponse login(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmailOrUsername(), loginRequest.getPassword()));
@@ -46,6 +53,8 @@ public class AuthService {
         String jwt = jwtUtil.generateToken(authentication);
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        auditLogService.log(userDetails.getId(), userDetails.getFullName(), "LOGIN", "USER", userDetails.getId(), "User logged in successfully");
 
         return new JwtResponse(jwt, "Bearer", userDetails.getId(), userDetails.getUsername(), userDetails.getEmail(),
                 userDetails.getFullName(), userDetails.getRole());
@@ -143,8 +152,23 @@ public class AuthService {
         return new MessageResponse("Account reactivated successfully", true);
     }
 
+    public void suspendUser(Long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        user.setIsActive(false);
+        userRepository.save(user);
+        auditLogService.log(null, "ADMIN", "SUSPEND", "USER", id, "Suspended user: " + user.getEmail());
+    }
+
+    public void reactivateUser(Long id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        user.setIsActive(true);
+        userRepository.save(user);
+        auditLogService.log(null, "ADMIN", "REACTIVATE", "USER", id, "Reactivated user: " + user.getEmail());
+    }
+
     public MessageResponse deleteUser(Long userId) {
         userRepository.deleteById(userId);
+        auditLogService.log(null, "ADMIN", "DELETE", "USER", userId, "Permanently deleted user with ID: " + userId);
         return new MessageResponse("User deleted successfully", true);
     }
 
@@ -164,9 +188,28 @@ public class AuthService {
     public Map<String, Long> getAdminStats() {
         Map<String, Long> stats = new HashMap<>();
         stats.put("totalUsers", userRepository.count());
-        stats.put("totalWorkspaces", 0L);
-        stats.put("totalBoards", 0L);
-        stats.put("totalCards", 0L);
+        
+        try {
+            Long workspaces = restTemplate.getForObject("http://localhost:8082/api/workspaces/count", Long.class);
+            stats.put("totalWorkspaces", workspaces != null ? workspaces : 0L);
+        } catch (Exception e) {
+            stats.put("totalWorkspaces", 0L);
+        }
+
+        try {
+            Long boards = restTemplate.getForObject("http://localhost:8083/api/boards/count", Long.class);
+            stats.put("totalBoards", boards != null ? boards : 0L);
+        } catch (Exception e) {
+            stats.put("totalBoards", 0L);
+        }
+
+        try {
+            Long cards = restTemplate.getForObject("http://localhost:8085/api/cards/count", Long.class);
+            stats.put("totalCards", cards != null ? cards : 0L);
+        } catch (Exception e) {
+            stats.put("totalCards", 0L);
+        }
+        
         return stats;
     }
 

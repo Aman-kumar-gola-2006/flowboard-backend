@@ -142,4 +142,14 @@ public class WorkspaceController {
         boolean isAdmin = workspaceService.isUserAdminOfWorkspace(workspaceId, userId);
         return ResponseEntity.ok(isAdmin);
     }
+
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<WorkspaceResponse>> getAllWorkspaces(@RequestHeader("Authorization") String authToken) {
+        return ResponseEntity.ok(workspaceService.getAllWorkspacesForAdmin(authToken));
+    }
+
+    @GetMapping("/count")
+    public ResponseEntity<Long> getTotalWorkspaces() {
+        return ResponseEntity.ok(workspaceService.getTotalCount());
+    }
 }

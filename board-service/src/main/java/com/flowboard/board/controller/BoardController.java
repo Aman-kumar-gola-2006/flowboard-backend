@@ -231,10 +231,15 @@ public class BoardController {
         } catch (Exception e) {
             analytics.put("totalCards", 0);
         }
-        
+       
         analytics.put("memberCount", memberRepo.countByBoardId(boardId));
         
         return ResponseEntity.ok(analytics);
+    }
+
+    @GetMapping("/count")
+    public ResponseEntity<Long> getTotalBoards() {
+        return ResponseEntity.ok(boardService.getTotalCount());
     }
 
     // Quick error response helper

@@ -85,6 +85,11 @@ public class NotificationService {
         notificationRepository.deleteByRecipientIdAndIsReadTrue(userId);
     }
 
+    @Transactional(readOnly = true)
+    public List<Notification> getAllNotificationsForAdmin() {
+        return notificationRepository.findAll();
+    }
+
     @Transactional
     public void sendWebSocketNotification(Notification notification) {
         try {

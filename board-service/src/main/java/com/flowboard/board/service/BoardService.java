@@ -323,6 +323,10 @@ public class BoardService {
         String role = memberRepo.findRoleByBoardIdAndUserId(boardId, userId);
         return "ADMIN".equals(role);
     }
+
+    public long getTotalCount() {
+        return boardRepo.count();
+    }
     
     private BoardResponse mapToResponse(Board board) {
         int memberCount = memberRepo.findByBoardId(board.getId()).size();

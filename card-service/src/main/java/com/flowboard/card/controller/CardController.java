@@ -180,6 +180,16 @@ public class CardController {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
         }
     }
+
+    @GetMapping("/count")
+    public ResponseEntity<Long> getTotalCards() {
+        return ResponseEntity.ok(cardService.getTotalCount());
+    }
+
+    @GetMapping("/overdue/all")
+    public ResponseEntity<?> getAllOverdueCards() {
+        return ResponseEntity.ok(cardService.getAllOverdueCards());
+    }
     
     private Map<String, Object> errorResponse(String message) {
         Map<String, Object> error = new HashMap<>();

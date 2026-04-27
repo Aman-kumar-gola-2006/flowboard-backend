@@ -267,6 +267,18 @@ public class CardService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
+
+    public long getTotalCount() {
+        return cardRepo.count();
+    }
+
+    public List<CardResponse> getAllOverdueCards() {
+        List<Card> overdue = cardRepo.findByDueDateBeforeAndStatusNot(LocalDate.now(), Status.DONE);
+        return overdue.stream()
+                .filter(c -> !c.getIsArchived())
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
     
     private CardResponse mapToResponse(Card card) {
         return CardResponse.builder()

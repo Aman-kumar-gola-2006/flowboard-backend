@@ -43,4 +43,9 @@ public class NotificationController {
         notificationService.clearReadNotifications(userId);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/admin/all")
+    public ResponseEntity<?> getAllNotifications() {
+        return ResponseEntity.ok(notificationService.getAllNotificationsForAdmin());
+    }
 }
