@@ -15,6 +15,8 @@ public interface BoardMemberRepository extends JpaRepository<BoardMember, Long> 
     // Get all members of a board
     List<BoardMember> findByBoardId(Long boardId);
     
+    long countByBoardId(Long boardId);
+    
     // Find specific member
     Optional<BoardMember> findByBoardIdAndUserId(Long boardId, Long userId);
     

@@ -11,9 +11,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.web.client.RestTemplate;
+import com.flowboard.board.repository.BoardMemberRepository;
 
 @RestController
 @RequestMapping("/api/boards")
@@ -22,6 +25,12 @@ public class BoardController {
     
     @Autowired
     private BoardService boardService;
+    
+    @Autowired
+    private RestTemplate restTemplate;
+    
+    @Autowired
+    private BoardMemberRepository memberRepo;
     
     /**
      * Create a new board
@@ -195,6 +204,39 @@ public class BoardController {
         }
     }
     
+    @GetMapping("/{boardId}/analytics")
+    public ResponseEntity<Map<String, Object>> getBoardAnalytics(@PathVariable Long boardId) {
+        Map<String, Object> analytics = new HashMap<>();
+        
+        try {
+            // Card counts per list
+            Object listsResponse = restTemplate.getForObject("http://localhost:8084/api/lists/board/" + boardId, Object.class);
+            analytics.put("listStats", listsResponse);
+        } catch (Exception e) {
+            analytics.put("listStats", "List service unavailable");
+        }
+        
+        try {
+            // Overdue cards
+            Object overdueResponse = restTemplate.getForObject("http://localhost:8085/api/cards/board/" + boardId + "/overdue", Object.class);
+            analytics.put("overdueCards", overdueResponse);
+        } catch (Exception e) {
+            analytics.put("overdueCards", "Card service unavailable");
+        }
+        
+        try {
+            // Total cards
+            Object cardsResponse = restTemplate.getForObject("http://localhost:8085/api/cards/board/" + boardId, Object.class);
+            analytics.put("totalCards", cardsResponse);
+        } catch (Exception e) {
+            analytics.put("totalCards", 0);
+        }
+        
+        analytics.put("memberCount", memberRepo.countByBoardId(boardId));
+        
+        return ResponseEntity.ok(analytics);
+    }
+
     // Quick error response helper
     private Map<String, Object> errorResponse(String message) {
         Map<String, Object> error = new HashMap<>();
