@@ -15,7 +15,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -157,6 +159,15 @@ public class AuthService {
             return jwtUtil.generateToken(userDetails);
         }
         throw new RuntimeException("Invalid token");
+    }
+
+    public Map<String, Long> getAdminStats() {
+        Map<String, Long> stats = new HashMap<>();
+        stats.put("totalUsers", userRepository.count());
+        stats.put("totalWorkspaces", 0L);
+        stats.put("totalBoards", 0L);
+        stats.put("totalCards", 0L);
+        return stats;
     }
 
     public UserResponse mapToUserResponse(User user) {

@@ -122,6 +122,16 @@ public class BoardService {
     }
     
     /**
+     * Get all public boards that are not closed
+     */
+    public List<BoardResponse> getPublicBoards() {
+        return boardRepo.findByVisibilityAndIsClosed("PUBLIC", false)
+                .stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+    
+    /**
      * Update board details
      */
     @Transactional

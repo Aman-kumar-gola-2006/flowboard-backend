@@ -79,6 +79,19 @@ public class BoardController {
     }
     
     /**
+     * Get all public boards (No auth header required for initial view, but gateway might pass it)
+     */
+    @GetMapping("/public")
+    public ResponseEntity<?> getPublicBoards() {
+        try {
+            List<BoardResponse> boards = boardService.getPublicBoards();
+            return ResponseEntity.ok(boards);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
+        }
+    }
+    
+    /**
      * Update board
      */
     @PutMapping("/{boardId}")

@@ -28,4 +28,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     
     // Count boards in workspace - for analytics
     Long countByWorkspaceId(Long workspaceId);
+    
+    // Get public boards
+    List<Board> findByVisibilityAndIsClosed(String visibility, Boolean isClosed);
 }
