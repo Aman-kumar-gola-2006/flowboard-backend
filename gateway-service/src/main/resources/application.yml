@@ -25,10 +25,10 @@ spring:
           uri: http://localhost:8761
           predicates:
             - Path=/eureka/**
-        - id: auth-service
+        - id: auth-service-all
           uri: lb://auth-service
           predicates:
-            - Path=/api/auth/**
+            - Path=/api/auth/**,/login/**,/oauth2/**
         - id: board-service
           uri: lb://board-service
           predicates:

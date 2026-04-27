@@ -2,6 +2,7 @@ package com.flowboard.auth.config;
 
 import com.flowboard.auth.security.AuthEntryPointJwt;
 import com.flowboard.auth.security.JwtAuthenticationFilter;
+import com.flowboard.auth.security.OAuth2SuccessHandler;
 import com.flowboard.auth.security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -31,6 +32,9 @@ public class SecurityConfig {
     
     @Autowired
     private JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Autowired
+    private OAuth2SuccessHandler oAuth2SuccessHandler;
     
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
@@ -60,7 +64,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/oauth2/**").permitAll()
+                .requestMatchers("/login/**").permitAll()
                 .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .successHandler(oAuth2SuccessHandler)
+                .failureUrl("http://localhost:4200/login?error=oauth2")
             );
         
         http.authenticationProvider(authenticationProvider());
