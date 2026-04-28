@@ -18,5 +18,6 @@ public class MemberResponse {
     private String userEmail;
     private String userAvatar;
     private String role;
+    private String status;
     private LocalDateTime joinedAt;
 }

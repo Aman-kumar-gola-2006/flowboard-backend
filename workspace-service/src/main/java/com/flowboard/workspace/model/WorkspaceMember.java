@@ -31,6 +31,9 @@ public class WorkspaceMember {
     @Column(nullable = false)
     private String role = "MEMBER";
 
+    @Column(nullable = false)
+    private String status = "PENDING"; // PENDING, ACTIVE, REJECTED
+
     @CreationTimestamp
     @Column(name = "joined_at", updatable = false)
     private LocalDateTime joinedAt;

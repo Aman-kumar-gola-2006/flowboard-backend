@@ -62,6 +62,14 @@ public class WorkspaceController {
         return ResponseEntity.ok(responses);
     }
     
+    @GetMapping("/member/{userId}/pending")
+    public ResponseEntity<List<WorkspaceResponse>> getPendingInvitations(
+            @PathVariable Long userId,
+            @RequestHeader("Authorization") String authToken) {
+        List<WorkspaceResponse> responses = workspaceService.getPendingInvitations(userId, authToken);
+        return ResponseEntity.ok(responses);
+    }
+    
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<WorkspaceResponse>> getAllWorkspacesForUser(
             @PathVariable Long userId,
@@ -95,9 +103,10 @@ public class WorkspaceController {
     @PostMapping("/{workspaceId}/members")
     public ResponseEntity<MemberResponse> addMember(
             @PathVariable Long workspaceId,
+            @RequestHeader(value = "X-User-Id", required = false) Long actorId,
             @RequestHeader("Authorization") String authToken,
             @Valid @RequestBody MemberRequest request) {
-        MemberResponse response = workspaceService.addMember(workspaceId, request, authToken);
+        MemberResponse response = workspaceService.addMember(workspaceId, request, actorId, authToken);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
@@ -133,6 +142,22 @@ public class WorkspaceController {
             @PathVariable Long userId) {
         boolean exists = workspaceService.isUserMemberOfWorkspace(workspaceId, userId);
         return ResponseEntity.ok(exists);
+    }
+    
+    @PostMapping("/{workspaceId}/members/{userId}/accept")
+    public ResponseEntity<MessageResponse> acceptInvitation(
+            @PathVariable Long workspaceId,
+            @PathVariable Long userId) {
+        workspaceService.acceptInvitation(workspaceId, userId);
+        return ResponseEntity.ok(new MessageResponse("Invitation accepted", true));
+    }
+    
+    @PostMapping("/{workspaceId}/members/{userId}/reject")
+    public ResponseEntity<MessageResponse> rejectInvitation(
+            @PathVariable Long workspaceId,
+            @PathVariable Long userId) {
+        workspaceService.rejectInvitation(workspaceId, userId);
+        return ResponseEntity.ok(new MessageResponse("Invitation rejected", true));
     }
     
     @GetMapping("/{workspaceId}/members/{userId}/is-admin")

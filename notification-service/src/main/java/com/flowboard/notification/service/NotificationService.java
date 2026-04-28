@@ -16,6 +16,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,8 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationWebSocketHandler webSocketHandler;
     private final AuthClient authClient;
+    private final RestTemplate restTemplate;
+    private final EmailService emailService;
 
     @Transactional
     public Notification createNotification(NotificationRequest request) {
@@ -48,6 +52,75 @@ public class NotificationService {
         
         log.info("Notification created: {} for user {}", saved.getId(), saved.getRecipientId());
         return saved;
+    }
+
+    @Transactional
+    public NotificationResponse sendNotification(NotificationRequest request) {
+        Notification notification = createNotification(request);
+        return mapToResponse(notification);
+    }
+
+    @Scheduled(fixedRate = 3600000) // Every 1 hour
+    public void checkDueDateReminders() {
+        log.info("Checking due date reminders...");
+        
+        try {
+            // Get all cards with due dates
+            Object cardsResponse = restTemplate.getForObject(
+                "http://localhost:8085/api/cards/overdue/all", Object.class);
+            
+            List<Map<String, Object>> cards = (List<Map<String, Object>>) cardsResponse;
+            LocalDateTime now = LocalDateTime.now();
+            
+            for (Map<String, Object> card : cards) {
+                String dueDateStr = (String) card.get("dueDate");
+                if (dueDateStr == null) continue;
+                
+                LocalDateTime dueDate = LocalDateTime.parse(dueDateStr);
+                long hoursUntilDue = java.time.Duration.between(now, dueDate).toHours();
+                Long assigneeId = card.get("assigneeId") != null ? 
+                    ((Number) card.get("assigneeId")).longValue() : null;
+                
+                // 1 day reminder
+                if (hoursUntilDue <= 24 && hoursUntilDue > 1 && assigneeId != null) {
+                    sendDueDateReminder(assigneeId, card);
+                }
+                
+                // 1 hour reminder + email
+                if (hoursUntilDue <= 1 && hoursUntilDue > 0 && assigneeId != null) {
+                    sendDueDateReminder(assigneeId, card);
+                    sendDueDateEmail(assigneeId, card);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Due date check failed: {}", e.getMessage());
+        }
+    }
+
+    private void sendDueDateReminder(Long userId, Map<String, Object> card) {
+        NotificationRequest request = new NotificationRequest();
+        request.setRecipientId(userId);
+        request.setType("DUE_DATE");
+        request.setTitle("Due Date Reminder");
+        request.setMessage("Card '" + card.get("title") + "' is due soon!");
+        request.setRelatedId(((Number) card.get("id")).longValue());
+        request.setRelatedType("CARD");
+        createNotification(request);
+    }
+
+    private void sendDueDateEmail(Long userId, Map<String, Object> card) {
+        try {
+            Object userResponse = restTemplate.getForObject(
+                "http://localhost:8081/api/auth/users/" + userId, Object.class);
+            Map<String, Object> user = (Map<String, Object>) userResponse;
+            String email = (String) user.get("email");
+            
+            emailService.sendEmail(email, 
+                "FlowBoard - Task Due Soon!",
+                "Your card '" + card.get("title") + "' is due in 1 hour!");
+        } catch (Exception e) {
+            log.error("Email failed: {}", e.getMessage());
+        }
     }
 
     @Transactional(readOnly = true)

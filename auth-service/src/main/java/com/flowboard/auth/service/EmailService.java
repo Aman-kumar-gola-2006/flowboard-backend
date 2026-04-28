@@ -11,20 +11,19 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
     
-    public void sendResetPasswordEmail(String to, String resetToken) {
+    public void sendOtpEmail(String to, String otp) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
-        message.setSubject("FlowBoard - Reset Your Password");
+        message.setSubject("FlowBoard - Password Reset OTP");
         message.setText(
             "Hello,\n\n" +
-            "You requested to reset your password.\n\n" +
-            "Click the link below to reset:\n" +
-            "http://localhost:4200/reset-password?token=" + resetToken + "\n\n" +
-            "This link will expire in 1 hour.\n\n" +
+            "Your One-Time Password (OTP) for password reset is:\n\n" +
+            otp + "\n\n" +
+            "This OTP will expire in 10 minutes.\n\n" +
             "If you didn't request this, please ignore.\n\n" +
             "Thanks,\nFlowBoard Team"
         );
         mailSender.send(message);
-        System.out.println("Reset email sent to: " + to);
+        System.out.println("OTP email sent to: " + to);
     }
 }

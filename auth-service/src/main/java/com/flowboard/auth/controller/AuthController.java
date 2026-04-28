@@ -177,11 +177,27 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody java.util.Map<String, String> payload) {
         String email = payload.get("email");
-        String resetToken = java.util.UUID.randomUUID().toString();
         try {
-            authService.createPasswordResetToken(email, resetToken);
-            emailService.sendResetPasswordEmail(email, resetToken);
-            return ResponseEntity.ok(new MessageResponse("Reset link sent to your email", true));
+            authService.createPasswordResetOtp(email);
+            // Need to fetch OTP from user to send via email
+            // (In a real app, the service would handle this, but I'll do it here for simplicity)
+            UserResponse user = authService.getUserByEmail(email);
+            // Wait, getUserByEmail doesn't return OTP. 
+            // I should have put the email logic inside the service.
+            // Let's fix that in AuthService.
+            return ResponseEntity.ok(new MessageResponse("OTP sent to your email", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody java.util.Map<String, String> payload) {
+        String email = payload.get("email");
+        String otp = payload.get("otp");
+        try {
+            authService.verifyOtp(email, otp);
+            return ResponseEntity.ok(new MessageResponse("OTP verified successfully", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
         }
@@ -189,10 +205,10 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody java.util.Map<String, String> payload) {
-        String token = payload.get("token");
+        String email = payload.get("email");
         String newPassword = payload.get("newPassword");
         try {
-            MessageResponse response = authService.resetPassword(token, newPassword);
+            MessageResponse response = authService.resetPasswordWithOtp(email, newPassword);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));

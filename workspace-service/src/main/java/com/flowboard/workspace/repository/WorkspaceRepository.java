@@ -19,8 +19,11 @@ public interface WorkspaceRepository extends JpaRepository<Workspace, Long> {
     
     boolean existsByNameAndOwnerId(String name, Long ownerId);
     
-    @Query("SELECT w FROM Workspace w JOIN w.members m WHERE m.userId = :userId")
+    @Query("SELECT w FROM Workspace w JOIN w.members m WHERE m.userId = :userId AND m.status = 'ACTIVE'")
     List<Workspace> findByMemberUserId(@Param("userId") Long userId);
+    
+    @Query("SELECT w FROM Workspace w JOIN w.members m WHERE m.userId = :userId AND m.status = 'PENDING'")
+    List<Workspace> findPendingByMemberUserId(@Param("userId") Long userId);
     
     @Query("SELECT COUNT(w) FROM Workspace w WHERE w.ownerId = :ownerId")
     Long countByOwnerId(@Param("ownerId") Long ownerId);

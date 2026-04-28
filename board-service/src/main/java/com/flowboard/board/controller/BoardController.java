@@ -194,14 +194,28 @@ public class BoardController {
      * Get all board members
      */
     @GetMapping("/{boardId}/members")
-    public ResponseEntity<?> getBoardMembers(@PathVariable Long boardId,
-                                             @RequestHeader("X-User-Id") Long userId) {
-        try {
-            List<BoardMember> members = boardService.getBoardMembers(boardId, userId);
-            return ResponseEntity.ok(members);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
+    public ResponseEntity<List<Map<String, Object>>> getBoardMembers(@PathVariable Long boardId) {
+        List<BoardMember> members = memberRepo.findByBoardId(boardId);
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (BoardMember member : members) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("userId", member.getUserId());
+            map.put("role", member.getRole());
+            
+            // Get user details from Auth Service
+            try {
+                Object user = restTemplate.getForObject("http://localhost:8081/api/auth/users/" + member.getUserId(), Object.class);
+                Map<String, Object> userMap = (Map<String, Object>) user;
+                map.put("userName", userMap.getOrDefault("fullName", "User " + member.getUserId()));
+                map.put("userEmail", userMap.getOrDefault("email", ""));
+            } catch (Exception e) {
+                map.put("userName", "User " + member.getUserId());
+            }
+            
+            result.add(map);
         }
+        return ResponseEntity.ok(result);
     }
     
     @GetMapping("/{boardId}/analytics")

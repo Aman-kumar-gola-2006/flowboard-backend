@@ -16,47 +16,62 @@ spring:
         format_sql: true
   cloud:
     gateway:
-      discovery:
-        locator:
-          enabled: true
-          lower-case-service-id: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:4200"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
       routes:
-        - id: eureka-dashboard
-          uri: http://localhost:8761
-          predicates:
-            - Path=/eureka/**
-        - id: auth-service-all
+        - id: auth-service
           uri: lb://auth-service
           predicates:
-            - Path=/api/auth/**,/login/**,/oauth2/**
-        - id: board-service
-          uri: lb://board-service
-          predicates:
-            - Path=/api/boards/**
-        - id: list-service
-          uri: lb://list-service
-          predicates:
-            - Path=/api/lists/**
-        - id: card-service
-          uri: lb://card-service
-          predicates:
-            - Path=/api/cards/**
-        - id: comment-service
-          uri: lb://comment-service
-          predicates:
-            - Path=/api/comments/**
+            - Path=/api/v1/auth/**, /api/v1/admin/**, /oauth2/**, /login/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
         - id: workspace-service
           uri: lb://workspace-service
           predicates:
-            - Path=/api/workspaces/**
+            - Path=/api/v1/workspaces/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+        - id: board-service
+          uri: lb://board-service
+          predicates:
+            - Path=/api/v1/boards/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+        - id: list-service
+          uri: lb://list-service
+          predicates:
+            - Path=/api/v1/lists/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+        - id: card-service
+          uri: lb://card-service
+          predicates:
+            - Path=/api/v1/cards/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+        - id: comment-service
+          uri: lb://comment-service
+          predicates:
+            - Path=/api/v1/comments/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+        - id: label-service
+          uri: lb://board-service
+          predicates:
+            - Path=/api/v1/labels/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
         - id: notification-service
           uri: lb://notification-service
           predicates:
-            - Path=/api/notifications/**
-        - id: admin-service
-          uri: lb://auth-service
-          predicates:
-            - Path=/api/admin/**
+            - Path=/api/v1/notifications/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
 
 server:
   port: 8080

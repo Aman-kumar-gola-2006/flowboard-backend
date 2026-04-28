@@ -10,8 +10,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.flowboard.card.model.Attachment;
+import com.flowboard.card.model.CardActivity;
 import com.flowboard.card.model.ChecklistItem;
+import com.flowboard.card.repository.AttachmentRepository;
+import com.flowboard.card.repository.CardActivityRepository;
 import com.flowboard.card.repository.ChecklistItemRepository;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.File;
 
 
 import java.util.HashMap;
@@ -29,9 +35,59 @@ public class CardController {
     @Autowired
     private ChecklistItemRepository checklistRepo;
 
+    @Autowired
+    private CardActivityRepository activityRepo;
+
+    @Autowired
+    private AttachmentRepository attachmentRepo;
+
     @GetMapping("/{cardId}/checklist")
     public ResponseEntity<List<ChecklistItem>> getChecklist(@PathVariable Long cardId) {
         return ResponseEntity.ok(checklistRepo.findByCardIdOrderByPositionAsc(cardId));
+    }
+
+    @GetMapping("/{cardId}/activity")
+    public ResponseEntity<List<CardActivity>> getCardActivity(@PathVariable Long cardId) {
+        return ResponseEntity.ok(activityRepo.findByCardIdOrderByCreatedAtDesc(cardId));
+    }
+
+    @PostMapping("/{cardId}/attachments")
+    public ResponseEntity<Attachment> uploadAttachment(@PathVariable Long cardId, 
+                                                        @RequestParam("file") MultipartFile file,
+                                                        @RequestHeader("X-User-Id") Long userId) {
+        try {
+            // Save to local folder
+            String uploadDir = "uploads/";
+            File dir = new File(uploadDir);
+            if (!dir.exists()) dir.mkdirs();
+            
+            String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            File dest = new File(uploadDir + fileName);
+            file.transferTo(dest);
+            
+            Attachment attachment = new Attachment();
+            attachment.setCardId(cardId);
+            attachment.setFileName(file.getOriginalFilename());
+            attachment.setFileUrl("/uploads/" + fileName);
+            attachment.setFileType(file.getContentType());
+            attachment.setFileSize(file.getSize());
+            attachment.setUploadedBy(userId);
+            
+            return ResponseEntity.ok(attachmentRepo.save(attachment));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{cardId}/attachments")
+    public ResponseEntity<List<Attachment>> getAttachments(@PathVariable Long cardId) {
+        return ResponseEntity.ok(attachmentRepo.findByCardIdOrderByCreatedAtDesc(cardId));
+    }
+
+    @DeleteMapping("/{cardId}/attachments/{attachmentId}")
+    public ResponseEntity<?> deleteAttachment(@PathVariable Long cardId, @PathVariable Long attachmentId) {
+        attachmentRepo.deleteById(attachmentId);
+        return ResponseEntity.ok(Map.of("message", "Attachment deleted"));
     }
 
     @PostMapping("/{cardId}/checklist")

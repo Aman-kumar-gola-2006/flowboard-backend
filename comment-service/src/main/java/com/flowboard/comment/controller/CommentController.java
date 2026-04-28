@@ -23,8 +23,17 @@ public class CommentController {
     
     @PostMapping
     public ResponseEntity<?> addComment(@RequestBody CommentRequest request,
-                                        @RequestHeader("X-User-Id") Long userId,
-                                        @RequestHeader("Authorization") String authorization) {
+                                        @RequestHeader(value = "X-User-Id", required = false) Long userId,
+                                        @RequestHeader(value = "Authorization", required = false) String authorization) {
+        
+        System.out.println("DEBUG: addComment called");
+        System.out.println("DEBUG: userId: " + userId);
+        System.out.println("DEBUG: auth: " + (authorization != null ? "PRESENT" : "MISSING"));
+        
+        if (userId == null) {
+            return ResponseEntity.badRequest().body(errorResponse("X-User-Id header is missing"));
+        }
+        
         try {
             CommentResponse response = commentService.addComment(request, userId, authorization);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -35,7 +44,7 @@ public class CommentController {
     
     @GetMapping("/card/{cardId}")
     public ResponseEntity<?> getCommentsByCard(@PathVariable Long cardId,
-                                               @RequestHeader("X-User-Id") Long userId) {
+                                               @RequestHeader(value = "X-User-Id", required = false) Long userId) {
         try {
             List<CommentResponse> comments = commentService.getCommentsByCard(cardId, userId);
             return ResponseEntity.ok(comments);

@@ -1,6 +1,7 @@
 package com.flowboard.card.dto;
 
 import com.flowboard.card.enums.Priority;
+import com.flowboard.card.enums.Status;
 import lombok.Data;
 import java.time.LocalDate;
 
@@ -11,6 +12,7 @@ public class CardRequest {
     private String title;
     private String description;
     private Priority priority;
+    private Status status;
     private LocalDate dueDate;
     private LocalDate startDate;
     private Long assigneeId;

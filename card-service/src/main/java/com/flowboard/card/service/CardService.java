@@ -7,6 +7,8 @@ import com.flowboard.card.dto.MoveCardRequest;
 import com.flowboard.card.enums.Priority;
 import com.flowboard.card.enums.Status;
 import com.flowboard.card.model.Card;
+import com.flowboard.card.model.CardActivity;
+import com.flowboard.card.repository.CardActivityRepository;
 import com.flowboard.card.repository.CardRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +31,9 @@ public class CardService {
     
     @Autowired
     private ListClient listClient;
+
+    @Autowired
+    private CardActivityRepository activityRepo;
     
     @Transactional
     public CardResponse createCard(CardRequest request, Long userId) {
@@ -66,6 +71,8 @@ public class CardService {
         
         Card saved = cardRepo.save(card);
         log.info("Card created with ID: {}", saved.getId());
+        
+        logActivity(saved.getId(), userId, "User", "CREATED", "Card created: " + saved.getTitle());
         
         return mapToResponse(saved);
     }
@@ -112,6 +119,7 @@ public class CardService {
         if (request.getTitle() != null) card.setTitle(request.getTitle());
         if (request.getDescription() != null) card.setDescription(request.getDescription());
         if (request.getPriority() != null) card.setPriority(request.getPriority());
+        if (request.getStatus() != null) card.setStatus(request.getStatus());
         if (request.getDueDate() != null) card.setDueDate(request.getDueDate());
         if (request.getStartDate() != null) card.setStartDate(request.getStartDate());
         if (request.getAssigneeId() != null) card.setAssigneeId(request.getAssigneeId());
@@ -120,6 +128,7 @@ public class CardService {
         card.setUpdatedAt(LocalDateTime.now());
         
         Card updated = cardRepo.save(card);
+        logActivity(cardId, userId, "User", "UPDATED", "Card updated");
         return mapToResponse(updated);
     }
     
@@ -137,6 +146,7 @@ public class CardService {
         card.setStatus(status);
         card.setUpdatedAt(LocalDateTime.now());
         cardRepo.save(card);
+        logActivity(cardId, userId, "User", "STATUS_CHANGED", "Status changed to " + status);
     }
     
     @Transactional
@@ -166,6 +176,8 @@ public class CardService {
         
         card.setUpdatedAt(LocalDateTime.now());
         cardRepo.save(card);
+        
+        logActivity(cardId, userId, "User", "MOVED", "Card moved to list " + targetListId);
         
         return getCardsByList(targetListId, userId);
     }
@@ -280,6 +292,16 @@ public class CardService {
                 .collect(Collectors.toList());
     }
     
+    private void logActivity(Long cardId, Long actorId, String actorName, String action, String details) {
+        CardActivity activity = new CardActivity();
+        activity.setCardId(cardId);
+        activity.setActorId(actorId);
+        activity.setActorName(actorName);
+        activity.setAction(action);
+        activity.setDetails(details);
+        activityRepo.save(activity);
+    }
+
     private CardResponse mapToResponse(Card card) {
         return CardResponse.builder()
                 .id(card.getId())

@@ -78,4 +78,7 @@ public class User {
 
     @Column(name = "reset_token_expiry")
     private LocalDateTime resetTokenExpiry;
+
+    @Column(name = "is_otp_verified")
+    private Boolean isOtpVerified = false;
 }

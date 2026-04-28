@@ -45,6 +45,9 @@ public class AuthService {
     @Autowired
     private AuditLogService auditLogService;
 
+    @Autowired
+    private EmailService emailService;
+
     public JwtResponse login(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmailOrUsername(), loginRequest.getPassword()));
@@ -219,25 +222,47 @@ public class AuthService {
                 .isActive(user.getIsActive()).createdAt(user.getCreatedAt()).build();
     }
 
-    public void createPasswordResetToken(String email, String token) {
+    public void createPasswordResetOtp(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
-        user.setResetToken(token);
-        user.setResetTokenExpiry(LocalDateTime.now().plusHours(1));
+        
+        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        user.setResetToken(otp);
+        user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setIsOtpVerified(false);
+        userRepository.save(user);
+        
+        emailService.sendOtpEmail(email, otp);
+    }
+
+    public void verifyOtp(String email, String otp) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getResetToken() == null || !user.getResetToken().equals(otp)) {
+            throw new RuntimeException("Invalid OTP");
+        }
+
+        if (user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("OTP has expired");
+        }
+
+        user.setIsOtpVerified(true);
         userRepository.save(user);
     }
 
-    public MessageResponse resetPassword(String token, String newPassword) {
-        User user = userRepository.findByResetToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid or expired reset token"));
+    public MessageResponse resetPasswordWithOtp(String email, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.getResetTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Reset token has expired");
+        if (!user.getIsOtpVerified()) {
+            throw new RuntimeException("OTP not verified");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setResetToken(null);
         user.setResetTokenExpiry(null);
+        user.setIsOtpVerified(false);
         userRepository.save(user);
 
         return new MessageResponse("Password reset successfully", true);

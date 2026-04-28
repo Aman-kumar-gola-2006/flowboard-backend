@@ -13,5 +13,4 @@ public class WorkspaceServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(WorkspaceServiceApplication.class, args);
     }
-
 }
