@@ -1,6 +1,7 @@
 package com.flowboard.workspace.controller;
 
 import com.flowboard.workspace.dto.*;
+import com.flowboard.workspace.model.WorkspaceInvitation;
 import com.flowboard.workspace.service.WorkspaceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,9 +89,15 @@ public class WorkspaceController {
     @PutMapping("/{id}")
     public ResponseEntity<WorkspaceResponse> updateWorkspace(
             @PathVariable Long id,
-            @RequestHeader("Authorization") String authToken,
+            @RequestHeader(value = "Authorization", required = false) String authToken,
             @Valid @RequestBody WorkspaceRequest request) {
         WorkspaceResponse response = workspaceService.updateWorkspace(id, request, authToken);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/upgrade")
+    public ResponseEntity<WorkspaceResponse> upgradeWorkspace(@PathVariable Long id) {
+        WorkspaceResponse response = workspaceService.upgradeWorkspace(id);
         return ResponseEntity.ok(response);
     }
     
@@ -176,5 +183,19 @@ public class WorkspaceController {
     @GetMapping("/count")
     public ResponseEntity<Long> getTotalWorkspaces() {
         return ResponseEntity.ok(workspaceService.getTotalCount());
+    }
+
+    // Invitation management via tokens
+    @PostMapping("/invitations/accept")
+    public ResponseEntity<MessageResponse> acceptInvitationByToken(
+            @RequestParam String token, 
+            @RequestParam Long userId) {
+        workspaceService.acceptInvitationByToken(token, userId);
+        return ResponseEntity.ok(new MessageResponse("Invitation accepted successfully", true));
+    }
+
+    @GetMapping("/invitations/validate")
+    public ResponseEntity<WorkspaceInvitation> validateInvitation(@RequestParam String token) {
+        return ResponseEntity.ok(workspaceService.validateInvitation(token));
     }
 }

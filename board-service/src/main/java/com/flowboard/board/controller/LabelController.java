@@ -3,7 +3,7 @@ package com.flowboard.board.controller;
 import com.flowboard.board.model.CardLabel;
 import com.flowboard.board.model.Label;
 import com.flowboard.board.repository.CardLabelRepository;
-import com.flowboard.board.repository.LabelRepository;
+import com.flowboard.board.service.LabelService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,24 +18,29 @@ import java.util.Map;
 public class LabelController {
 
     @Autowired
-    private LabelRepository labelRepo;
+    private LabelService labelService;
 
     @Autowired
     private CardLabelRepository cardLabelRepo;
 
     @GetMapping("/board/{boardId}")
     public ResponseEntity<List<Label>> getBoardLabels(@PathVariable Long boardId) {
-        return ResponseEntity.ok(labelRepo.findByBoardId(boardId));
+        return ResponseEntity.ok(labelService.getLabelsByBoard(boardId));
     }
 
     @PostMapping("/board/{boardId}")
     public ResponseEntity<Label> createLabel(@PathVariable Long boardId, @RequestBody Map<String, String> payload) {
-        Label label = new Label();
-        label.setBoardId(boardId);
-        label.setName(payload.get("name"));
-        label.setColor(payload.get("color"));
-        return ResponseEntity.ok(labelRepo.save(label));
+        String name = payload.get("name");
+        String color = payload.get("color");
+        return ResponseEntity.ok(labelService.createLabel(boardId, name, color));
     }
+
+    @DeleteMapping("/{labelId}")
+    public ResponseEntity<?> deleteLabel(@PathVariable Long labelId) {
+        labelService.deleteLabel(labelId);
+        return ResponseEntity.ok(Map.of("message", "Label deleted successfully"));
+    }
+
 
     @PostMapping("/card/{cardId}/add/{labelId}")
     public ResponseEntity<?> addLabelToCard(@PathVariable Long cardId, @PathVariable Long labelId, @RequestParam Long boardId) {
@@ -61,6 +66,7 @@ public class LabelController {
         List<Long> labelIds = cardLabelRepo.findByCardId(cardId).stream()
                 .map(CardLabel::getLabelId)
                 .toList();
-        return ResponseEntity.ok(labelRepo.findAllById(labelIds));
+        return ResponseEntity.ok(labelService.findAllById(labelIds));
     }
+
 }

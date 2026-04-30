@@ -81,4 +81,7 @@ public class User {
 
     @Column(name = "is_otp_verified")
     private Boolean isOtpVerified = false;
+
+    @Column(name = "is_pro")
+    private Boolean isPro = false;
 }

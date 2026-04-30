@@ -40,6 +40,9 @@ public class Workspace {
     @Column(name = "is_active")
     private Boolean isActive = true;
 
+    @Column(name = "is_pro")
+    private Boolean isPro = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

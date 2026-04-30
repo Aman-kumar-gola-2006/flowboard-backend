@@ -21,6 +21,7 @@ public class WorkspaceResponse {
     private String visibility;
     private String logoUrl;
     private Boolean isActive;
+    private Boolean isPro;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<MemberResponse> members;

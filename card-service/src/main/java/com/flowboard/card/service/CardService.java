@@ -18,40 +18,46 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 public class CardService {
-    
+
     private static final Logger log = LoggerFactory.getLogger(CardService.class);
-    
+
     @Autowired
     private CardRepository cardRepo;
-    
+
     @Autowired
     private ListClient listClient;
 
     @Autowired
     private CardActivityRepository activityRepo;
-    
+
+    // Injected Redis cache service - handles all position caching
+    @Autowired
+    private CardPositionCacheService cacheService;
+
     @Transactional
     public CardResponse createCard(CardRequest request, Long userId) {
-        
-        log.info("Creating card '{}' in list {} by user {}", 
+
+        log.info("Creating card '{}' in list {} by user {}",
                  request.getTitle(), request.getListId(), userId);
-        
+
         // Check list access
         try {
             listClient.getListById(request.getListId(), userId);
         } catch (Exception e) {
             throw new RuntimeException("List not found or access denied");
         }
-        
+
         // Get max position for the list
         Integer maxPos = cardRepo.findMaxPositionByListId(request.getListId());
         int newPosition = (maxPos != null) ? maxPos + 1 : 0;
-        
+
         Card card = new Card();
         card.setListId(request.getListId());
         card.setBoardId(request.getBoardId());
@@ -68,54 +74,73 @@ public class CardService {
         card.setIsArchived(false);
         card.setCreatedAt(LocalDateTime.now());
         card.setUpdatedAt(LocalDateTime.now());
-        
+
         Card saved = cardRepo.save(card);
         log.info("Card created with ID: {}", saved.getId());
-        
+
+        // Cache the new card's position in Redis right away
+        // Next time someone loads this list, it'll come straight from Redis
+        cacheService.cacheCardPosition(saved.getId(), saved.getListId(), saved.getPosition());
+
         logActivity(saved.getId(), userId, "User", "CREATED", "Card created: " + saved.getTitle());
-        
+
         return mapToResponse(saved);
     }
-    
+
     public List<CardResponse> getCardsByList(Long listId, Long userId) {
-        
+
         log.info("Fetching cards for list: {}", listId);
-        
+
         try {
             listClient.getListById(listId, userId);
         } catch (Exception e) {
             throw new RuntimeException("List not found or access denied");
         }
-        
+
+        // Quick Redis lookup before DB hit - this is the whole point of caching
+        Map<Long, Integer> cachedPositions = cacheService.getCardsByList(listId);
+
         List<Card> cards = cardRepo.findByListIdAndIsArchivedOrderByPositionAsc(listId, false);
+
+        // If Redis had nothing (cache miss), warm it up from the DB result
+        // Next request for this list will skip the DB entirely
+        if (cachedPositions.isEmpty() && !cards.isEmpty()) {
+            log.debug("Cache miss for list {} - warming Redis from DB", listId);
+            Map<Long, Integer> positions = new HashMap<>();
+            for (Card c : cards) {
+                positions.put(c.getId(), c.getPosition());
+            }
+            cacheService.warmListCache(listId, positions);
+        }
+
         return cards.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
-    
+
     public CardResponse getCardById(Long cardId, Long userId) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
-        
+
         try {
             listClient.getListById(card.getListId(), userId);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
-        
+
         return mapToResponse(card);
     }
-    
+
     @Transactional
     public CardResponse updateCard(Long cardId, CardRequest request, Long userId) {
-        
+
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
-        
+
         try {
             listClient.getListById(card.getListId(), userId);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
-        
+
         if (request.getTitle() != null) card.setTitle(request.getTitle());
         if (request.getDescription() != null) card.setDescription(request.getDescription());
         if (request.getPriority() != null) card.setPriority(request.getPriority());
@@ -124,40 +149,50 @@ public class CardService {
         if (request.getStartDate() != null) card.setStartDate(request.getStartDate());
         if (request.getAssigneeId() != null) card.setAssigneeId(request.getAssigneeId());
         if (request.getCoverColor() != null) card.setCoverColor(request.getCoverColor());
-        
+
         card.setUpdatedAt(LocalDateTime.now());
-        
+
         Card updated = cardRepo.save(card);
         logActivity(cardId, userId, "User", "UPDATED", "Card updated");
         return mapToResponse(updated);
     }
-    
+
     @Transactional
     public void updateCardStatus(Long cardId, Status status, Long userId) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
-        
+
         try {
             listClient.getListById(card.getListId(), userId);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
-        
+
         card.setStatus(status);
         card.setUpdatedAt(LocalDateTime.now());
         cardRepo.save(card);
         logActivity(cardId, userId, "User", "STATUS_CHANGED", "Status changed to " + status);
     }
-    
+
+    /**
+     * Move a card to a new position, within the same list or to a different list.
+     *
+     * Redis-first strategy:
+     *  1. Update Redis immediately → UI gets < 200ms acknowledgement
+     *  2. Persist reordered positions to MySQL
+     *  3. If MySQL fails → invalidate Redis so next read gets fresh DB data
+     *
+     * This way the user never stares at a frozen board waiting for the DB.
+     */
     @Transactional
     public List<CardResponse> moveCard(Long cardId, MoveCardRequest request, Long userId) {
-        
+
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
-        
+
         Long sourceListId = card.getListId();
         Long targetListId = request.getTargetListId();
-        
+
         // Check access to both lists
         try {
             listClient.getListById(sourceListId, userId);
@@ -165,26 +200,53 @@ public class CardService {
         } catch (Exception e) {
             throw new RuntimeException("Access denied to one of the lists");
         }
-        
-        if (sourceListId.equals(targetListId)) {
-            // Same list - just reorder
-            reorderWithinList(cardId, request.getNewPosition(), sourceListId);
-        } else {
-            // Different list - remove from source, add to target
-            moveToList(card, targetListId, request.getNewPosition());
+
+        // Optimistic Redis update first - makes the UI feel instant
+        // We write the new position to Redis before touching MySQL
+        try {
+            cacheService.cacheCardPosition(cardId, targetListId, request.getNewPosition());
+            log.debug("Optimistic Redis update done for card {} → list {}, pos {}",
+                    cardId, targetListId, request.getNewPosition());
+        } catch (Exception cacheEx) {
+            // Redis write failed - that's fine, carry on with the DB update
+            log.warn("Redis optimistic write failed for card {} (proceeding with DB): {}", cardId, cacheEx.getMessage());
         }
-        
-        card.setUpdatedAt(LocalDateTime.now());
-        cardRepo.save(card);
-        
-        logActivity(cardId, userId, "User", "MOVED", "Card moved to list " + targetListId);
-        
+
+        // Now do the actual DB reorder - this is the slow part
+        try {
+            if (sourceListId.equals(targetListId)) {
+                // Same list - just reorder
+                reorderWithinList(cardId, request.getNewPosition(), sourceListId);
+            } else {
+                // Moving between lists - invalidate source list cache since positions shifted
+                cacheService.clearListCache(sourceListId);
+                moveToList(card, targetListId, request.getNewPosition());
+            }
+
+            card.setUpdatedAt(LocalDateTime.now());
+            cardRepo.save(card);
+
+            // Refresh the target list's cache with accurate DB positions
+            // (DB reorder may have changed multiple cards, so a full cache refresh is safest)
+            cacheService.clearListCache(targetListId);
+
+            logActivity(cardId, userId, "User", "MOVED", "Card moved to list " + targetListId);
+
+        } catch (Exception dbEx) {
+            // DB failed after Redis was already updated - invalidate cache so next read hits DB
+            log.error("DB update failed for card move (invalidating Redis cache): {}", dbEx.getMessage());
+            cacheService.invalidateCache(cardId);
+            cacheService.clearListCache(targetListId);
+            cacheService.clearListCache(sourceListId);
+            throw new RuntimeException("Failed to persist card move: " + dbEx.getMessage());
+        }
+
         return getCardsByList(targetListId, userId);
     }
-    
+
     private void reorderWithinList(Long cardId, Integer newPosition, Long listId) {
         List<Card> cards = cardRepo.findByListIdOrderByPositionAsc(listId);
-        
+
         Card movedCard = null;
         for (Card c : cards) {
             if (c.getId().equals(cardId)) {
@@ -192,18 +254,18 @@ public class CardService {
                 break;
             }
         }
-        
+
         if (movedCard == null) return;
-        
+
         cards.remove(movedCard);
         cards.add(newPosition, movedCard);
-        
+
         for (int i = 0; i < cards.size(); i++) {
             cards.get(i).setPosition(i);
             cardRepo.save(cards.get(i));
         }
     }
-    
+
     private void moveToList(Card card, Long targetListId, Integer newPosition) {
         // Remove from source list
         List<Card> sourceCards = cardRepo.findByListIdOrderByPositionAsc(card.getListId());
@@ -212,58 +274,66 @@ public class CardService {
             sourceCards.get(i).setPosition(i);
             cardRepo.save(sourceCards.get(i));
         }
-        
+
         // Add to target list
         List<Card> targetCards = cardRepo.findByListIdOrderByPositionAsc(targetListId);
         card.setListId(targetListId);
-        
-        int insertPos = (newPosition != null && newPosition <= targetCards.size()) 
+
+        int insertPos = (newPosition != null && newPosition <= targetCards.size())
                         ? newPosition : targetCards.size();
         targetCards.add(insertPos, card);
-        
+
         for (int i = 0; i < targetCards.size(); i++) {
             targetCards.get(i).setPosition(i);
             cardRepo.save(targetCards.get(i));
         }
     }
-    
+
     @Transactional
     public void archiveCard(Long cardId, Long userId) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
-        
+
         try {
             listClient.getListById(card.getListId(), userId);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
-        
+
         card.setIsArchived(true);
         card.setUpdatedAt(LocalDateTime.now());
         cardRepo.save(card);
+
+        // Archived card should not appear in position cache
+        cacheService.invalidateCache(cardId);
+
         log.info("Card {} archived", cardId);
     }
-    
+
     @Transactional
     public void deleteCard(Long cardId, Long userId) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
-        
+
         try {
             listClient.getListById(card.getListId(), userId);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
-        
+
         cardRepo.delete(card);
+
+        // Clean up Redis - no point keeping a deleted card in cache
+        cacheService.invalidateCache(cardId);
+
         log.warn("Card {} permanently deleted", cardId);
     }
-    
+
     public List<CardResponse> getCardsByBoard(Long boardId, Long userId) {
         List<Card> cards = cardRepo.findByBoardIdAndIsArchivedFalse(boardId);
         return cards.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
-    
+
     public List<CardResponse> getCardsByAssignee(Long assigneeId, Long userId) {
         List<Card> cards = cardRepo.findByAssigneeId(assigneeId);
         return cards.stream()
@@ -271,7 +341,7 @@ public class CardService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
-    
+
     public List<CardResponse> getOverdueCards(Long boardId, Long userId) {
         List<Card> cards = cardRepo.findByDueDateBeforeAndStatusNot(LocalDate.now(), Status.DONE);
         return cards.stream()
@@ -291,7 +361,7 @@ public class CardService {
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
-    
+
     private void logActivity(Long cardId, Long actorId, String actorName, String action, String details) {
         CardActivity activity = new CardActivity();
         activity.setCardId(cardId);

@@ -2,10 +2,12 @@ package com.flowboard.card.dto;
 
 import com.flowboard.card.enums.Priority;
 import com.flowboard.card.enums.Status;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.LocalDate;
 
-@Data
+@Getter
+@Setter
 public class CardRequest {
     private Long listId;
     private Long boardId;

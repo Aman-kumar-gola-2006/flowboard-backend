@@ -1,6 +1,7 @@
 package com.flowboard.auth.service;
 
 import com.flowboard.auth.dto.*;
+import com.flowboard.auth.dto.NotificationMessage;
 import com.flowboard.auth.model.User;
 import com.flowboard.auth.repository.UserRepository;
 import com.flowboard.auth.security.JwtUtil;
@@ -48,6 +49,9 @@ public class AuthService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private MessageProducer messageProducer;
+
     public JwtResponse login(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmailOrUsername(), loginRequest.getPassword()));
@@ -57,10 +61,14 @@ public class AuthService {
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
+        if (!userDetails.getIsActive()) {
+            throw new RuntimeException("Your account has been suspended by an admin. Please contact support.");
+        }
+
         auditLogService.log(userDetails.getId(), userDetails.getFullName(), "LOGIN", "USER", userDetails.getId(), "User logged in successfully");
 
         return new JwtResponse(jwt, "Bearer", userDetails.getId(), userDetails.getUsername(), userDetails.getEmail(),
-                userDetails.getFullName(), userDetails.getRole());
+                userDetails.getFullName(), userDetails.getRole(), userDetails.getIsPro());
     }
 
     public MessageResponse register(RegisterRequest registerRequest) {
@@ -83,6 +91,13 @@ public class AuthService {
         user.setProvider("LOCAL");
 
         userRepository.save(user);
+        
+        // Send Welcome Email via RabbitMQ (Async)
+        try {
+            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "WELCOME", null));
+        } catch (Exception e) {
+            System.err.println("Failed to queue welcome email: " + e.getMessage());
+        }
 
         return new MessageResponse("User registered successfully!", true);
     }
@@ -176,7 +191,16 @@ public class AuthService {
     }
 
     public Boolean validateToken(String token) {
-        return jwtUtil.validateToken(token);
+        try {
+            if (jwtUtil.validateToken(token)) {
+                String username = jwtUtil.extractUsername(token);
+                return userRepository.existsByUsername(username) && 
+                       userRepository.findByUsername(username).map(User::getIsActive).orElse(false);
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return false;
     }
 
     public String refreshToken(String oldToken) {
@@ -219,7 +243,7 @@ public class AuthService {
     public UserResponse mapToUserResponse(User user) {
         return UserResponse.builder().id(user.getId()).email(user.getEmail()).username(user.getUsername())
                 .fullName(user.getFullName()).avatarUrl(user.getAvatarUrl()).role(user.getRole())
-                .isActive(user.getIsActive()).createdAt(user.getCreatedAt()).build();
+                .isActive(user.getIsActive()).isPro(user.getIsPro()).createdAt(user.getCreatedAt()).build();
     }
 
     public void createPasswordResetOtp(String email) {
@@ -232,7 +256,8 @@ public class AuthService {
         user.setIsOtpVerified(false);
         userRepository.save(user);
         
-        emailService.sendOtpEmail(email, otp);
+        // Send OTP Email via RabbitMQ (Async)
+        messageProducer.sendNotification(new NotificationMessage(email, "User", "OTP", otp));
     }
 
     public void verifyOtp(String email, String otp) {
@@ -266,5 +291,22 @@ public class AuthService {
         userRepository.save(user);
 
         return new MessageResponse("Password reset successfully", true);
+    }
+
+    public MessageResponse upgradeUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setIsPro(true);
+        userRepository.save(user);
+        
+        // Send Pro Upgrade Email via RabbitMQ (Async)
+        try {
+            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "PRO", null));
+        } catch (Exception e) {
+            System.err.println("Failed to queue PRO upgrade email: " + e.getMessage());
+        }
+
+        auditLogService.log(userId, user.getFullName(), "UPGRADE", "USER", userId, "User upgraded to PRO");
+        return new MessageResponse("User upgraded to PRO successfully", true);
     }
 }

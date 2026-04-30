@@ -16,6 +16,14 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
 
+  # Redis config - used for card position caching
+  # Keeps drag-drop operations snappy (< 200ms target)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms   # fail fast if Redis is down, don't block card ops
+
 server:
   port: 8085
 
