@@ -1,6 +1,12 @@
 package com.flowboard.auth.controller;
 
-import com.flowboard.auth.dto.*;
+import com.flowboard.auth.dto.LoginRequest;
+import com.flowboard.auth.dto.RegisterRequest;
+import com.flowboard.auth.dto.JwtResponse;
+import com.flowboard.auth.dto.MessageResponse;
+import com.flowboard.auth.dto.UserResponse;
+import com.flowboard.auth.dto.UpdateProfileRequest;
+import com.flowboard.auth.dto.SupportRequest;
 import com.flowboard.auth.service.AuthService;
 import com.flowboard.auth.service.EmailService;
 import jakarta.validation.Valid;
@@ -132,6 +138,16 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
         }
     }
+
+    @PutMapping("/users/{id}/upgrade")
+    public ResponseEntity<?> upgradeUser(@PathVariable Long id) {
+        try {
+            MessageResponse response = authService.upgradeUser(id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
+    }
     
     @DeleteMapping("/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -165,7 +181,7 @@ public class AuthController {
     public ResponseEntity<?> refreshToken(@RequestParam String token) {
         try {
             String newToken = authService.refreshToken(token);
-            return ResponseEntity.ok(new JwtResponse(newToken, "Bearer", null, null, null, null, null));
+            return ResponseEntity.ok(new JwtResponse(newToken, "Bearer", null, null, null, null, null, null));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
         }
@@ -179,12 +195,6 @@ public class AuthController {
         String email = payload.get("email");
         try {
             authService.createPasswordResetOtp(email);
-            // Need to fetch OTP from user to send via email
-            // (In a real app, the service would handle this, but I'll do it here for simplicity)
-            UserResponse user = authService.getUserByEmail(email);
-            // Wait, getUserByEmail doesn't return OTP. 
-            // I should have put the email logic inside the service.
-            // Let's fix that in AuthService.
             return ResponseEntity.ok(new MessageResponse("OTP sent to your email", true));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
@@ -212,6 +222,16 @@ public class AuthController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
+    }
+
+    @PostMapping("/contact")
+    public ResponseEntity<?> contactSupport(@Valid @RequestBody SupportRequest request) {
+        try {
+            emailService.sendSupportEmail(request.getName(), request.getEmail(), request.getSubject(), request.getMessage());
+            return ResponseEntity.ok(new MessageResponse("Your message has been sent to the admin. We will get back to you soon.", true));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Failed to send message: " + e.getMessage(), false));
         }
     }
 }

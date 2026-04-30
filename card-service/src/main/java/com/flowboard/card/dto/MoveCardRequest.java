@@ -1,8 +1,10 @@
 package com.flowboard.card.dto;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class MoveCardRequest {
     private Long targetListId;
     private Integer newPosition;

@@ -3,7 +3,9 @@ package com.flowboard.workspace.service;
 import com.flowboard.workspace.client.AuthServiceClient;
 import com.flowboard.workspace.dto.*;
 import com.flowboard.workspace.model.Workspace;
+import com.flowboard.workspace.model.WorkspaceInvitation;
 import com.flowboard.workspace.model.WorkspaceMember;
+import com.flowboard.workspace.repository.WorkspaceInvitationRepository;
 import com.flowboard.workspace.repository.WorkspaceMemberRepository;
 import com.flowboard.workspace.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +28,7 @@ public class WorkspaceService {
     
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceInvitationRepository invitationRepository;
     private final AuthServiceClient authServiceClient;
 
     @Autowired
@@ -128,9 +129,21 @@ public class WorkspaceService {
         if (request.getLogoUrl() != null) {
             workspace.setLogoUrl(request.getLogoUrl());
         }
+        if (request.getIsPro() != null) {
+            workspace.setIsPro(request.getIsPro());
+        }
         
         Workspace updatedWorkspace = workspaceRepository.save(workspace);
         return mapToWorkspaceResponse(updatedWorkspace, authToken);
+    }
+    
+    @Transactional
+    public WorkspaceResponse upgradeWorkspace(Long id) {
+        Workspace workspace = workspaceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Workspace not found with id: " + id));
+        workspace.setIsPro(true);
+        Workspace updatedWorkspace = workspaceRepository.save(workspace);
+        return mapToWorkspaceResponse(updatedWorkspace, null);
     }
     
     @Transactional
@@ -151,55 +164,135 @@ public class WorkspaceService {
         Workspace workspace = workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new RuntimeException("Workspace not found"));
         
-        UserResponse user;
+        UserResponse user = null;
         try {
             user = authServiceClient.getUserByEmail(request.getEmail(), authToken);
         } catch (Exception e) {
-            log.error("User not found or error calling Auth Service: {}", e.getMessage());
-            throw new RuntimeException("User not found with this email. Please ask them to register first.");
+            log.info("User {} not found in Auth Service. Creating external invitation.", request.getEmail());
         }
         
-        if (memberRepository.existsByWorkspaceIdAndUserId(workspaceId, user.getId())) {
-            throw new RuntimeException("User is already a member of this workspace");
+        if (user != null) {
+            // Existing User Flow
+            if (memberRepository.existsByWorkspaceIdAndUserId(workspaceId, user.getId())) {
+                throw new RuntimeException("User is already a member of this workspace");
+            }
+            
+            WorkspaceMember member = new WorkspaceMember();
+            member.setWorkspace(workspace);
+            member.setUserId(user.getId());
+            member.setRole(request.getRole() != null ? request.getRole() : "MEMBER");
+            member.setStatus("PENDING");
+            
+            WorkspaceMember savedMember = memberRepository.save(member);
+            
+            // Send email
+            sendInvitationEmail(request.getEmail(), workspace.getName(), false, null);
+
+            // Send in-app notification
+            sendInAppNotification(user.getId(), actorId != null ? actorId : workspace.getOwnerId(), workspaceId, workspace.getName());
+            
+            return mapToMemberResponse(savedMember, user);
+        } else {
+            // New User (External Invitation) Flow
+            Optional<WorkspaceInvitation> existingInvite = invitationRepository.findByEmailAndWorkspaceId(request.getEmail(), workspaceId);
+            if (existingInvite.isPresent()) {
+                throw new RuntimeException("An invitation has already been sent to this email for this workspace.");
+            }
+
+            WorkspaceInvitation invitation = new WorkspaceInvitation();
+            invitation.setWorkspaceId(workspaceId);
+            invitation.setEmail(request.getEmail());
+            invitation.setRole(request.getRole() != null ? request.getRole() : "MEMBER");
+            invitation.setInvitedBy(actorId != null ? actorId : workspace.getOwnerId());
+            
+            WorkspaceInvitation savedInvite = invitationRepository.save(invitation);
+            
+            // Send email with token
+            sendInvitationEmail(request.getEmail(), workspace.getName(), true, savedInvite.getToken());
+
+            return MemberResponse.builder()
+                    .userEmail(request.getEmail())
+                    .userName("Invited User")
+                    .role(invitation.getRole())
+                    .status("INVITED")
+                    .build();
         }
-        
-        WorkspaceMember member = new WorkspaceMember();
-        member.setWorkspace(workspace);
-        member.setUserId(user.getId());
-        member.setRole(request.getRole() != null ? request.getRole() : "MEMBER");
-        member.setStatus("PENDING");
-        
-        WorkspaceMember savedMember = memberRepository.save(member);
-        
-        // Send email
+    }
+
+    private void sendInvitationEmail(String email, String workspaceName, boolean isNewUser, String token) {
         try {
             SimpleMailMessage msg = new SimpleMailMessage();
-            msg.setTo(request.getEmail());
-            msg.setSubject("FlowBoard - Invitation to " + workspace.getName());
-            msg.setText("You've been invited to workspace \"" + workspace.getName() + "\".\n\nLogin: http://localhost:4200/login");
+            msg.setTo(email);
+            msg.setSubject("FlowBoard - Invitation to join " + workspaceName);
+            
+            String link = isNewUser 
+                ? "http://localhost:4200/register?inviteToken=" + token 
+                : "http://localhost:4200/login";
+            
+            String message = "You've been invited to join the workspace \"" + workspaceName + "\" on FlowBoard.\n\n";
+            if (isNewUser) {
+                message += "Since you don't have an account yet, please register using the link below to accept the invitation:\n";
+            } else {
+                message += "Please login to your account to view the invitation:\n";
+            }
+            message += link;
+            
+            msg.setText(message);
             mailSender.send(msg);
         } catch (Exception e) {
-            log.error("Email failed: {}", e.getMessage());
+            log.error("Failed to send invitation email to {}: {}", email, e.getMessage());
         }
+    }
 
-        // Send in-app notification
+    private void sendInAppNotification(Long recipientId, Long actorId, Long workspaceId, String workspaceName) {
         try {
             Map<String, Object> notification = new HashMap<>();
-            notification.put("recipientId", user.getId());
-            notification.put("actorId", actorId != null ? actorId : workspace.getOwnerId());
+            notification.put("recipientId", recipientId);
+            notification.put("actorId", actorId);
             notification.put("type", "WORKSPACE_INVITE");
             notification.put("title", "Workspace Invitation");
-            notification.put("message", "You have been invited to join workspace: " + workspace.getName());
+            notification.put("message", "You have been invited to join workspace: " + workspaceName);
             notification.put("relatedId", workspaceId);
             notification.put("relatedType", "WORKSPACE");
             
             restTemplate.postForObject("http://notification-service/api/notifications/send", 
                 notification, Object.class);
         } catch (Exception e) {
-            log.error("In-app notification failed: {}", e.getMessage());
+            log.error("In-app notification failed for user {}: {}", recipientId, e.getMessage());
         }
+    }
+
+    @Transactional
+    public void acceptInvitationByToken(String token, Long userId) {
+        WorkspaceInvitation invitation = invitationRepository.findByToken(token)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired invitation token"));
         
-        return mapToMemberResponse(savedMember, user);
+        if (invitation.getIsAccepted() || invitation.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("This invitation has expired or already been accepted");
+        }
+
+        Workspace workspace = workspaceRepository.findById(invitation.getWorkspaceId())
+                .orElseThrow(() -> new RuntimeException("Workspace no longer exists"));
+
+        // Create member
+        WorkspaceMember member = new WorkspaceMember();
+        member.setWorkspace(workspace);
+        member.setUserId(userId);
+        member.setRole(invitation.getRole());
+        member.setStatus("ACTIVE");
+        memberRepository.save(member);
+
+        // Mark invitation as accepted
+        invitation.setIsAccepted(true);
+        invitationRepository.save(invitation);
+        
+        log.info("User {} accepted invitation for workspace {} via token", userId, workspace.getId());
+    }
+
+    public WorkspaceInvitation validateInvitation(String token) {
+        return invitationRepository.findByToken(token)
+                .filter(i -> !i.getIsAccepted() && i.getExpiryDate().isAfter(LocalDateTime.now()))
+                .orElseThrow(() -> new RuntimeException("Invalid or expired invitation token"));
     }
     
     @Transactional
@@ -261,10 +354,12 @@ public class WorkspaceService {
     
     private WorkspaceResponse mapToWorkspaceResponse(Workspace workspace, String authToken) {
         UserResponse owner = null;
-        try {
-            owner = authServiceClient.getUserById(workspace.getOwnerId(), authToken);
-        } catch (Exception e) {
-            log.error("Error fetching owner details: {}", e.getMessage());
+        if (authToken != null && !authToken.isEmpty()) {
+            try {
+                owner = authServiceClient.getUserById(workspace.getOwnerId(), authToken);
+            } catch (Exception e) {
+                log.error("Error fetching owner details: {}", e.getMessage());
+            }
         }
         
         List<WorkspaceMember> members = memberRepository.findByWorkspace(workspace);
@@ -278,6 +373,7 @@ public class WorkspaceService {
                 .visibility(workspace.getVisibility())
                 .logoUrl(workspace.getLogoUrl())
                 .isActive(workspace.getIsActive())
+                .isPro(workspace.getIsPro())
                 .createdAt(workspace.getCreatedAt())
                 .updatedAt(workspace.getUpdatedAt())
                 .memberCount(members.size())

@@ -21,4 +21,6 @@ public class WorkspaceRequest {
     private String visibility = "PRIVATE";
     
     private String logoUrl;
+    
+    private Boolean isPro;
 }

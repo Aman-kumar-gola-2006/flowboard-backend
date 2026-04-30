@@ -26,6 +26,7 @@ public class UserDetailsImpl implements UserDetails {
     private String password;
     private String role;
     private Boolean isActive;
+    private Boolean isPro;
     private Collection<? extends GrantedAuthority> authorities;
     
     public static UserDetailsImpl build(User user) {
@@ -37,6 +38,7 @@ public class UserDetailsImpl implements UserDetails {
                 user.getPassword(),
                 user.getRole(),
                 user.getIsActive(),
+                user.getIsPro(),
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
         );
     }

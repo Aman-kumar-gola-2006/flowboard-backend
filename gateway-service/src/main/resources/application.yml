@@ -24,54 +24,72 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
       routes:
-        - id: auth-service
+        - id: auth-service-api
           uri: lb://auth-service
           predicates:
-            - Path=/api/v1/auth/**, /api/v1/admin/**, /oauth2/**, /login/**
+            - Path=/api/v1/auth/**, /api/v1/admin/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+        - id: auth-service-oauth2
+          uri: lb://auth-service
+          predicates:
+            - Path=/oauth2/**, /login/**
         - id: workspace-service
           uri: lb://workspace-service
           predicates:
             - Path=/api/v1/workspaces/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
         - id: board-service
           uri: lb://board-service
           predicates:
             - Path=/api/v1/boards/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
         - id: list-service
           uri: lb://list-service
           predicates:
             - Path=/api/v1/lists/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
         - id: card-service
           uri: lb://card-service
           predicates:
             - Path=/api/v1/cards/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
         - id: comment-service
           uri: lb://comment-service
           predicates:
             - Path=/api/v1/comments/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
         - id: label-service
           uri: lb://board-service
           predicates:
             - Path=/api/v1/labels/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
         - id: notification-service
           uri: lb://notification-service
           predicates:
             - Path=/api/v1/notifications/**
           filters:
             - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Authentication
 
 server:
   port: 8080
