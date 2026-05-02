@@ -174,6 +174,14 @@ public class AuthService {
         User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
         user.setIsActive(false);
         userRepository.save(user);
+        
+        // Send Suspension Email via RabbitMQ (Async)
+        try {
+            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "SUSPEND", null));
+        } catch (Exception e) {
+            System.err.println("Failed to queue suspension email: " + e.getMessage());
+        }
+
         auditLogService.log(null, "ADMIN", "SUSPEND", "USER", id, "Suspended user: " + user.getEmail());
     }
 
@@ -181,6 +189,14 @@ public class AuthService {
         User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
         user.setIsActive(true);
         userRepository.save(user);
+
+        // Send Reactivation Email via RabbitMQ (Async)
+        try {
+            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "REACTIVATE", null));
+        } catch (Exception e) {
+            System.err.println("Failed to queue reactivation email: " + e.getMessage());
+        }
+
         auditLogService.log(null, "ADMIN", "REACTIVATE", "USER", id, "Reactivated user: " + user.getEmail());
     }
 

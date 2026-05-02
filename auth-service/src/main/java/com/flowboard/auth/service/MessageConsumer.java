@@ -26,6 +26,12 @@ public class MessageConsumer {
                 case "PRO":
                     emailService.sendProUpgradeEmail(message.getEmail(), message.getName());
                     break;
+                case "SUSPEND":
+                    emailService.sendSuspensionEmail(message.getEmail(), message.getName());
+                    break;
+                case "REACTIVATE":
+                    emailService.sendReactivationEmail(message.getEmail(), message.getName());
+                    break;
                 default:
                     System.out.println("Unknown message type: " + message.getType());
             }

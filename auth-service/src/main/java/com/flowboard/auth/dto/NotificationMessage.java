@@ -12,6 +12,6 @@ import java.io.Serializable;
 public class NotificationMessage implements Serializable {
     private String email;
     private String name;
-    private String type; // WELCOME, OTP, PRO
+    private String type; // WELCOME, OTP, PRO, SUSPEND, REACTIVATE
     private String extraData; // For OTP or other specific info
 }

@@ -13,13 +13,13 @@ import java.util.List;
 public interface AuthServiceClient {
     
     @GetMapping("/users/{id}")
-    UserResponse getUserById(@PathVariable Long id, @RequestHeader("Authorization") String token);
+    UserResponse getUserById(@PathVariable("id") Long id, @RequestHeader("Authorization") String token);
     
     @GetMapping("/users/email/{email}")
-    UserResponse getUserByEmail(@PathVariable String email, @RequestHeader("Authorization") String token);
+    UserResponse getUserByEmail(@PathVariable("email") String email, @RequestHeader("Authorization") String token);
     
     @GetMapping("/users/search")
-    List<UserResponse> searchUsers(@RequestParam String name, @RequestHeader("Authorization") String token);
+    List<UserResponse> searchUsers(@RequestParam("name") String name, @RequestHeader("Authorization") String token);
     
     @GetMapping("/me")
     UserResponse getCurrentUser(@RequestHeader("Authorization") String token);

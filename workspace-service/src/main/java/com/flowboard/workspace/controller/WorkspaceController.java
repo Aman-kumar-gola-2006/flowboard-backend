@@ -154,8 +154,9 @@ public class WorkspaceController {
     @PostMapping("/{workspaceId}/members/{userId}/accept")
     public ResponseEntity<MessageResponse> acceptInvitation(
             @PathVariable Long workspaceId,
-            @PathVariable Long userId) {
-        workspaceService.acceptInvitation(workspaceId, userId);
+            @PathVariable Long userId,
+            @RequestHeader(value = "Authorization", required = false) String authToken) {
+        workspaceService.acceptInvitation(workspaceId, userId, authToken);
         return ResponseEntity.ok(new MessageResponse("Invitation accepted", true));
     }
     
@@ -189,8 +190,9 @@ public class WorkspaceController {
     @PostMapping("/invitations/accept")
     public ResponseEntity<MessageResponse> acceptInvitationByToken(
             @RequestParam String token, 
-            @RequestParam Long userId) {
-        workspaceService.acceptInvitationByToken(token, userId);
+            @RequestParam Long userId,
+            @RequestHeader(value = "Authorization", required = false) String authToken) {
+        workspaceService.acceptInvitationByToken(token, userId, authToken);
         return ResponseEntity.ok(new MessageResponse("Invitation accepted successfully", true));
     }
 

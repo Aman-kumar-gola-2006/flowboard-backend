@@ -82,4 +82,19 @@ public class EmailService {
         String html = getHtmlTemplate("Support Request Received", "Admin", content, "Respond in Admin Panel", "http://localhost:4200/admin");
         sendHtmlEmail("amanagola9841@gmail.com", "FlowBoard Support: " + subject, html);
     }
+
+    public void sendSuspensionEmail(String to, String name) {
+        String content = "Important security update: Your account has been suspended due to suspicious activity detected on the platform. This action has been taken to protect your data and our community.<br><br>" +
+                         "<strong>How to unblock your account:</strong><br>" +
+                         "Please contact our support team immediately to verify your identity and request account reactivation. Our team is here to help you resolve this issue.";
+        String html = getHtmlTemplate("Account Suspended ⚠️", name, content, "Contact Support", "mailto:amanagola9841@gmail.com");
+        sendHtmlEmail(to, "Security Alert: Your FlowBoard account has been suspended", html);
+    }
+
+    public void sendReactivationEmail(String to, String name) {
+        String content = "Great news! Your account has been reviewed and successfully reactivated. You can now log back in and continue organizing your projects with FlowBoard.<br><br>" +
+                         "We appreciate your patience during the review process. Welcome back to the community!";
+        String html = getHtmlTemplate("Account Reactivated 🎉", name, content, "Log In to FlowBoard", "http://localhost:4200/login");
+        sendHtmlEmail(to, "Welcome Back! Your FlowBoard account is now active", html);
+    }
 }

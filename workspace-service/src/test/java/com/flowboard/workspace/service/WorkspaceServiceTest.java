@@ -274,7 +274,7 @@ class WorkspaceServiceTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(memberRepository.save(any(WorkspaceMember.class))).thenReturn(adminMember);
 
-        assertDoesNotThrow(() -> workspaceService.acceptInvitation(1L, 1L));
+        assertDoesNotThrow(() -> workspaceService.acceptInvitation(1L, 1L, "token"));
         assertEquals("ACTIVE", adminMember.getStatus());
     }
 
@@ -284,7 +284,7 @@ class WorkspaceServiceTest {
         adminMember.setStatus("ACTIVE");
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
 
-        assertDoesNotThrow(() -> workspaceService.acceptInvitation(1L, 1L));
+        assertDoesNotThrow(() -> workspaceService.acceptInvitation(1L, 1L, "token"));
         verify(memberRepository, never()).save(any());
     }
 

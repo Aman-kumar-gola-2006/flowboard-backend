@@ -263,7 +263,7 @@ public class WorkspaceService {
     }
 
     @Transactional
-    public void acceptInvitationByToken(String token, Long userId) {
+    public void acceptInvitationByToken(String token, Long userId, String authToken) {
         WorkspaceInvitation invitation = invitationRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Invalid or expired invitation token"));
         
@@ -286,8 +286,38 @@ public class WorkspaceService {
         invitation.setIsAccepted(true);
         invitationRepository.save(invitation);
         
+        // Send notification to workspace owner
+        try {
+            String userName = "User";
+            if (authToken != null) {
+                try {
+                    UserResponse user = authServiceClient.getUserById(userId, authToken);
+                    userName = user.getFullName() != null ? user.getFullName() : "NoFullName";
+                } catch (Exception e) {
+                    log.warn("Failed to fetch user details for notification: {}", e.getMessage());
+                    userName = "Err: " + e.getClass().getSimpleName();
+                }
+            } else {
+                userName = "Err: NoToken";
+            }
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("recipientId", workspace.getOwnerId());
+            notification.put("actorId", userId);
+            notification.put("type", "INVITE_ACCEPTED");
+            notification.put("title", "Invitation Accepted");
+            notification.put("message", userName + " has joined your workspace: " + workspace.getName());
+            notification.put("relatedId", workspace.getId());
+            notification.put("relatedType", "WORKSPACE");
+            
+            restTemplate.postForObject("http://notification-service/api/notifications/send", 
+                notification, Object.class);
+        } catch (Exception e) {
+            log.error("Failed to send acceptance notification: {}", e.getMessage());
+        }
+        
         log.info("User {} accepted invitation for workspace {} via token", userId, workspace.getId());
     }
+   
 
     public WorkspaceInvitation validateInvitation(String token) {
         return invitationRepository.findByToken(token)
@@ -382,7 +412,7 @@ public class WorkspaceService {
     }
     
     @Transactional
-    public void acceptInvitation(Long workspaceId, Long userId) {
+    public void acceptInvitation(Long workspaceId, Long userId, String authToken) {
         WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> new RuntimeException("Invitation not found"));
         
@@ -395,13 +425,25 @@ public class WorkspaceService {
 
         // Send notification to workspace owner
         try {
+            String userName = "User";
+            if (authToken != null) {
+                try {
+                    UserResponse user = authServiceClient.getUserById(userId, authToken);
+                    userName = user.getFullName() != null ? user.getFullName() : "NoFullName";
+                } catch (Exception e) {
+                    log.warn("Failed to fetch user details for notification: {}", e.getMessage());
+                    userName = "Err: " + e.getClass().getSimpleName();
+                }
+            } else {
+                userName = "Err: NoToken";
+            }
             Workspace workspace = member.getWorkspace();
             Map<String, Object> notification = new HashMap<>();
             notification.put("recipientId", workspace.getOwnerId());
             notification.put("actorId", userId);
             notification.put("type", "INVITE_ACCEPTED");
             notification.put("title", "Invitation Accepted");
-            notification.put("message", "User has joined your workspace: " + workspace.getName());
+            notification.put("message", userName + " has joined your workspace: " + workspace.getName());
             notification.put("relatedId", workspaceId);
             notification.put("relatedType", "WORKSPACE");
             
