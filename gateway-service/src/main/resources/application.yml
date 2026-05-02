@@ -23,6 +23,8 @@ spring:
             allowedMethods: "*"
             allowedHeaders: "*"
             allowCredentials: true
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
       routes:
         - id: auth-service-api
           uri: lb://auth-service

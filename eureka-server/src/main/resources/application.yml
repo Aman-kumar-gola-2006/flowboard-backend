@@ -3,7 +3,7 @@ spring:
     name: eureka-server
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_eureka?createDatabaseIfNotExist=true
-    username: root
+    username: admin
     password: 05092006
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
