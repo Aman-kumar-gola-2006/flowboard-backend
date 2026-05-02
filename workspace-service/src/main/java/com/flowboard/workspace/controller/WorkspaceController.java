@@ -14,7 +14,6 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/workspaces")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class WorkspaceController {
     
     private final WorkspaceService workspaceService;

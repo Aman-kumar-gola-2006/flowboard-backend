@@ -20,7 +20,6 @@ import com.flowboard.board.repository.BoardMemberRepository;
 
 @RestController
 @RequestMapping("/api/boards")
-@CrossOrigin(origins = "*")
 public class BoardController {
     
     @Autowired

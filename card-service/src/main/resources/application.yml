@@ -6,7 +6,7 @@ spring:
     name: card-service
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_card?createDatabaseIfNotExist=true
-    username: root
+    username: admin
     password: 05092006
   jpa:
     hibernate:

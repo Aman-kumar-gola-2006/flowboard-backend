@@ -19,17 +19,17 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:4200"
+            allowedOriginPatterns: "*"
             allowedMethods: "*"
             allowedHeaders: "*"
             allowCredentials: true
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
       routes:
         - id: auth-service-api
           uri: lb://auth-service
           predicates:
-            - Path=/api/v1/auth/**, /api/v1/admin/**
-          filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
+            - Path=/api/auth/**, /api/admin/**
         - id: auth-service-oauth2
           uri: lb://auth-service
           predicates:
@@ -37,59 +37,55 @@ spring:
         - id: workspace-service
           uri: lb://workspace-service
           predicates:
-            - Path=/api/v1/workspaces/**
+            - Path=/api/workspaces/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: board-service
           uri: lb://board-service
           predicates:
-            - Path=/api/v1/boards/**
+            - Path=/api/boards/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: list-service
           uri: lb://list-service
           predicates:
-            - Path=/api/v1/lists/**
+            - Path=/api/lists/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: card-service
           uri: lb://card-service
           predicates:
-            - Path=/api/v1/cards/**
+            - Path=/api/cards/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: comment-service
           uri: lb://comment-service
           predicates:
-            - Path=/api/v1/comments/**
+            - Path=/api/comments/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: label-service
           uri: lb://board-service
           predicates:
-            - Path=/api/v1/labels/**
+            - Path=/api/labels/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: notification-service
           uri: lb://notification-service
           predicates:
-            - Path=/api/v1/notifications/**
+            - Path=/api/notifications/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
         - id: payment-service
           uri: lb://payment-service
           predicates:
-            - Path=/api/v1/payments/**
+            - Path=/api/payments/**
           filters:
-            - RewritePath=/api/v1/(?<segment>.*), /api/${segment}
             - Authentication
+        - id: notification-websocket
+          uri: lb://notification-service
+          predicates:
+            - Path=/ws/**
 
 server:
   port: 8080
