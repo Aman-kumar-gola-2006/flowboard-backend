@@ -6,7 +6,7 @@ spring:
     name: list-service
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_list?createDatabaseIfNotExist=true
-    username: root
+    username: admin
     password: 05092006
   jpa:
     hibernate:
