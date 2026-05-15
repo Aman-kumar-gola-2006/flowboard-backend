@@ -87,10 +87,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.disable())
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                .authorizeHttpRequests(
-                        auth -> auth.requestMatchers("/api/auth/**").permitAll().requestMatchers("/api/public/**")
-                                .permitAll().requestMatchers("/actuator/**").permitAll().requestMatchers("/oauth2/**")
-                                .permitAll().requestMatchers("/login/**").permitAll().anyRequest().authenticated())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/oauth2/**").permitAll()
+                        .requestMatchers("/login/**").permitAll()
+                        .requestMatchers("/api/public/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
+                        .anyRequest().authenticated()
+                )
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(authorization -> authorization.authorizationRequestResolver(
                                 authorizationRequestResolver(clientRegistrationRepository)))
