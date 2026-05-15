@@ -1,0 +1,104 @@
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "05092006"
+      MYSQL_DATABASE: flowboard
+    ports:
+      - "3306:3306"
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+
+  gateway-service:
+    build: ./gateway-service
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - eureka-server
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    depends_on:
+      - eureka-server
+  workspace-service:
+    build: ./workspace-service
+    container_name: workspace-service
+    ports:
+      - "8082:8082"
+    depends_on:
+      - eureka-server
+      - mysql
+      - rabbitmq
+
+  board-service:
+    build: ./board-service
+    container_name: board-service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - eureka-server
+      - mysql
+      - rabbitmq
+
+  list-service:
+    build: ./list-service
+    container_name: list-service
+    ports:
+      - "8084:8084"
+    depends_on:
+      - eureka-server
+      - mysql
+      - rabbitmq
+
+  card-service:
+    build: ./card-service
+    container_name: card-service
+    ports:
+      - "8085:8085"
+    depends_on:
+      - eureka-server
+      - mysql
+      - rabbitmq
+
+  comment-service:
+    build: ./comment-service
+    container_name: comment-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - eureka-server
+      - mysql
+      - rabbitmq
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - eureka-server
+      - rabbitmq
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    ports:
+      - "8088:8088"
+    depends_on:
+      - eureka-server
+      - mysql
