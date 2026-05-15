@@ -25,6 +25,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private com.flowboard.auth.repository.UserRepository userRepository;
 
     @Autowired
+    private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+
+    @Autowired
     private EmailService emailService;
 
     @Autowired
@@ -87,7 +90,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             
             newUser.setUsername(targetUsername);
             // Satisfaction of @NotBlank with a secure random string (user won't use it for login)
-            newUser.setPassword(java.util.UUID.randomUUID().toString()); 
+            newUser.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString())); 
             newUser.setRole("MEMBER");
             newUser.setIsActive(true);
             newUser.setEmailVerified(true); // Trusted provider
