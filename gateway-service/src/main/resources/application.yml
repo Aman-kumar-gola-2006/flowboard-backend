@@ -90,6 +90,13 @@ spring:
 server:
   port: 8080
 
+logging:
+  level:
+    org.springframework.cloud.gateway: TRACE
+    org.springframework.http.server.reactive: DEBUG
+    org.springframework.web.reactive: DEBUG
+    reactor.netty.http.server: DEBUG
+
 eureka:
   client:
     service-url:
