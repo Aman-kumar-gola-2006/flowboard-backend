@@ -27,63 +27,63 @@ spring:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
       routes:
         - id: auth-service-api
-          uri: lb://auth-service
+          uri: http://auth-service:8081
           predicates:
             - Path=/api/auth/**, /api/admin/**
         - id: auth-service-oauth2
-          uri: lb://auth-service
+          uri: http://auth-service:8081
           predicates:
             - Path=/oauth2/**, /login/**
         - id: workspace-service
-          uri: lb://workspace-service
+          uri: http://workspace-service:8082
           predicates:
             - Path=/api/workspaces/**
           filters:
             - Authentication
         - id: board-service
-          uri: lb://board-service
+          uri: http://board-service:8083
           predicates:
             - Path=/api/boards/**
           filters:
             - Authentication
         - id: list-service
-          uri: lb://list-service
+          uri: http://list-service:8084
           predicates:
             - Path=/api/lists/**
           filters:
             - Authentication
         - id: card-service
-          uri: lb://card-service
+          uri: http://card-service:8085
           predicates:
             - Path=/api/cards/**
           filters:
             - Authentication
         - id: comment-service
-          uri: lb://comment-service
+          uri: http://comment-service:8086
           predicates:
             - Path=/api/comments/**
           filters:
             - Authentication
         - id: label-service
-          uri: lb://board-service
+          uri: http://board-service:8083
           predicates:
             - Path=/api/labels/**
           filters:
             - Authentication
         - id: notification-service
-          uri: lb://notification-service
+          uri: http://notification-service:8087
           predicates:
             - Path=/api/notifications/**
           filters:
             - Authentication
         - id: payment-service
-          uri: lb://payment-service
+          uri: http://payment-service:8088
           predicates:
             - Path=/api/payments/**
           filters:
             - Authentication
         - id: notification-websocket
-          uri: lb://notification-service
+          uri: http://notification-service:8087
           predicates:
             - Path=/ws/**
 
@@ -91,12 +91,8 @@ server:
   port: 8080
 
 eureka:
-  instance:
-    hostname: localhost
-    ip-address: 127.0.0.1
-    prefer-ip-address: true
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
