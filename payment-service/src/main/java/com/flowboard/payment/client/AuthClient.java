@@ -4,7 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 
-@FeignClient(name = "auth-service", url = "http://3.110.61.209:8081/api/auth")
+@FeignClient(name = "auth-service", url = "http://3.110.61.209.nip.io:8081/api/auth")
 public interface AuthClient {
     
     @PutMapping("/users/{id}/upgrade")

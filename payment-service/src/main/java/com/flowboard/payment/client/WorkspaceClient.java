@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import java.util.Map;
 
-@FeignClient(name = "workspace-service", url = "http://3.110.61.209:8082/api/workspaces")
+@FeignClient(name = "workspace-service", url = "http://3.110.61.209.nip.io:8082/api/workspaces")
 public interface WorkspaceClient {
     
     @PutMapping("/{id}/upgrade")

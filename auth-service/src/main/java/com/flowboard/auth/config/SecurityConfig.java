@@ -79,7 +79,7 @@ public class SecurityConfig {
                     .authorizationRequestResolver(authorizationRequestResolver(clientRegistrationRepository))
                 )
                 .successHandler(oAuth2SuccessHandler)
-                .failureUrl("http://3.110.61.209:4200/login?error=oauth2")
+                .failureUrl("http://3.110.61.209.nip.io:4200/login?error=oauth2")
             );
         
         http.authenticationProvider(authenticationProvider());

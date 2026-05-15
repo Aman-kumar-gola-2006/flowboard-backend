@@ -190,7 +190,7 @@ public class CommentService {
                 try {
                     // Get user by username from Auth Service
                     Object userResponse = restTemplate.getForObject(
-                        "http://3.110.61.209:8081/api/auth/users/username/" + username, Object.class);
+                        "http://3.110.61.209.nip.io:8081/api/auth/users/username/" + username, Object.class);
                     
                     // Send notification to mentioned user
                     Map<String, Object> notification = new HashMap<>();
@@ -202,7 +202,7 @@ public class CommentService {
                     notification.put("relatedId", cardId);
                     notification.put("relatedType", "CARD");
                     
-                    restTemplate.postForObject("http://3.110.61.209:8088/api/notifications/send", 
+                    restTemplate.postForObject("http://3.110.61.209.nip.io:8088/api/notifications/send", 
                         notification, Object.class);
                 } catch (Exception e) {
                     System.out.println("Mention notification failed: " + e.getMessage());
