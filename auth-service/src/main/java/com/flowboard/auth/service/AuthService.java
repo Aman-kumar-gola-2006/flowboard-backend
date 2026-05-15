@@ -94,7 +94,12 @@ public class AuthService {
         
         // Send Welcome Email via RabbitMQ (Async)
         try {
-            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "WELCOME", null));
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(user.getEmail());
+            msg.setName(user.getFullName());
+            msg.setType("WELCOME");
+            msg.setRecipientId(user.getId());
+            messageProducer.sendNotification(msg);
         } catch (Exception e) {
             System.err.println("Failed to queue welcome email: " + e.getMessage());
         }
@@ -175,11 +180,16 @@ public class AuthService {
         user.setIsActive(false);
         userRepository.save(user);
         
-        // Send Suspension Email via RabbitMQ (Async)
+        // Send Suspension Notification
         try {
-            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "SUSPEND", null));
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(user.getEmail());
+            msg.setName(user.getFullName());
+            msg.setType("SUSPEND");
+            msg.setRecipientId(user.getId());
+            messageProducer.sendNotification(msg);
         } catch (Exception e) {
-            System.err.println("Failed to queue suspension email: " + e.getMessage());
+            System.err.println("Failed to queue suspension notification: " + e.getMessage());
         }
 
         auditLogService.log(null, "ADMIN", "SUSPEND", "USER", id, "Suspended user: " + user.getEmail());
@@ -190,11 +200,16 @@ public class AuthService {
         user.setIsActive(true);
         userRepository.save(user);
 
-        // Send Reactivation Email via RabbitMQ (Async)
+        // Send Reactivation Notification
         try {
-            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "REACTIVATE", null));
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(user.getEmail());
+            msg.setName(user.getFullName());
+            msg.setType("REACTIVATE");
+            msg.setRecipientId(user.getId());
+            messageProducer.sendNotification(msg);
         } catch (Exception e) {
-            System.err.println("Failed to queue reactivation email: " + e.getMessage());
+            System.err.println("Failed to queue reactivation notification: " + e.getMessage());
         }
 
         auditLogService.log(null, "ADMIN", "REACTIVATE", "USER", id, "Reactivated user: " + user.getEmail());
@@ -273,7 +288,13 @@ public class AuthService {
         userRepository.save(user);
         
         // Send OTP Email via RabbitMQ (Async)
-        messageProducer.sendNotification(new NotificationMessage(email, "User", "OTP", otp));
+        NotificationMessage msg = new NotificationMessage();
+        msg.setEmail(email);
+        msg.setName("User");
+        msg.setType("OTP");
+        msg.setExtraData(otp);
+        msg.setRecipientId(user.getId());
+        messageProducer.sendNotification(msg);
     }
 
     public void verifyOtp(String email, String otp) {
@@ -317,7 +338,12 @@ public class AuthService {
         
         // Send Pro Upgrade Email via RabbitMQ (Async)
         try {
-            messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "PRO", null));
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(user.getEmail());
+            msg.setName(user.getFullName());
+            msg.setType("PRO");
+            msg.setRecipientId(user.getId());
+            messageProducer.sendNotification(msg);
         } catch (Exception e) {
             System.err.println("Failed to queue PRO upgrade email: " + e.getMessage());
         }

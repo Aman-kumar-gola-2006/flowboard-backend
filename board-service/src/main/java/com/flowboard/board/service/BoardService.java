@@ -1,9 +1,7 @@
 package com.flowboard.board.service;
 
-import com.flowboard.board.client.WorkspaceClient;
-import com.flowboard.board.dto.BoardRequest;
-import com.flowboard.board.dto.BoardResponse;
-import com.flowboard.board.dto.MemberRequest;
+import com.flowboard.board.client.*;
+import com.flowboard.board.dto.*;
 import com.flowboard.board.model.Board;
 import com.flowboard.board.model.BoardMember;
 import com.flowboard.board.repository.BoardMemberRepository;
@@ -16,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +29,12 @@ public class BoardService {
     
     @Autowired
     private WorkspaceClient workspaceClient;
+
+    @Autowired
+    private AuthClient authClient;
+
+    @Autowired
+    private MessageProducer messageProducer;
     
     private static final Logger log = LoggerFactory.getLogger(BoardService.class);
     
@@ -38,12 +43,12 @@ public class BoardService {
      * Checks if user is workspace member first.
      */
     @Transactional
-    public BoardResponse createBoard(BoardRequest request, Long userId) {
+    public BoardResponse createBoard(BoardRequest request, Long userId, String authToken) {
         
         log.info("Creating board '{}' for user {}", request.getName(), userId);
         
         // First check - is user part of this workspace?
-        Boolean isMember = workspaceClient.checkMembership(request.getWorkspaceId(), userId);
+        Boolean isMember = workspaceClient.checkMembership(request.getWorkspaceId(), userId, authToken);
         
         if (isMember == null || !isMember) {
             System.out.println("WARNING: User " + userId + " tried to create board without workspace access!");
@@ -78,12 +83,12 @@ public class BoardService {
     /**
      * Get a single board by ID
      */
-    public BoardResponse getBoardById(Long boardId, Long userId) {
+    public BoardResponse getBoardById(Long boardId, Long userId, String authToken) {
         Board board = boardRepo.findById(boardId)
                 .orElseThrow(() -> new RuntimeException("Board not found with id: " + boardId));
         
         // Check if user has access to this board
-        if (!hasAccess(board, userId)) {
+        if (!hasAccess(board, userId, authToken)) {
             throw new RuntimeException("You don't have permission to view this board");
         }
         
@@ -93,10 +98,10 @@ public class BoardService {
     /**
      * Get all boards in a workspace that user has access to
      */
-    public List<BoardResponse> getBoardsByWorkspace(Long workspaceId, Long userId) {
+    public List<BoardResponse> getBoardsByWorkspace(Long workspaceId, Long userId, String authToken) {
         
         // Check workspace membership first
-        Boolean isMember = workspaceClient.checkMembership(workspaceId, userId);
+        Boolean isMember = workspaceClient.checkMembership(workspaceId, userId, authToken);
         
         if (isMember == null || !isMember) {
             throw new RuntimeException("You are not a member of this workspace");
@@ -106,7 +111,7 @@ public class BoardService {
         
         // Filter boards based on visibility and membership
         return boards.stream()
-                .filter(board -> hasAccess(board, userId))
+                .filter(board -> hasAccess(board, userId, authToken))
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -170,14 +175,14 @@ public class BoardService {
      * Close/Archive a board
      */
     @Transactional
-    public void closeBoard(Long boardId, Long userId) {
+    public void closeBoard(Long boardId, Long userId, String authToken) {
         
         Board board = boardRepo.findById(boardId)
                 .orElseThrow(() -> new RuntimeException("Board not found"));
         
         // Check if user is board ADMIN or workspace ADMIN
         boolean isBoardAdmin = isBoardAdmin(boardId, userId);
-        boolean isWorkspaceAdmin = workspaceClient.isWorkspaceAdmin(board.getWorkspaceId(), userId);
+        boolean isWorkspaceAdmin = workspaceClient.isWorkspaceAdmin(board.getWorkspaceId(), userId, authToken);
         
         if (!isBoardAdmin && !isWorkspaceAdmin) {
             throw new RuntimeException("You don't have permission to close this board");
@@ -194,13 +199,13 @@ public class BoardService {
      * Permanently delete board
      */
     @Transactional
-    public void deleteBoard(Long boardId, Long userId) {
+    public void deleteBoard(Long boardId, Long userId, String authToken) {
         
         Board board = boardRepo.findById(boardId)
                 .orElseThrow(() -> new RuntimeException("Board not found"));
         
         // Only workspace admin can delete
-        boolean isWorkspaceAdmin = workspaceClient.isWorkspaceAdmin(board.getWorkspaceId(), userId);
+        boolean isWorkspaceAdmin = workspaceClient.isWorkspaceAdmin(board.getWorkspaceId(), userId, authToken);
         
         if (!isWorkspaceAdmin) {
             throw new RuntimeException("Only workspace admin can permanently delete a board");
@@ -214,7 +219,7 @@ public class BoardService {
      * Add a member to board
      */
     @Transactional
-    public void addMember(Long boardId, MemberRequest request, Long addedBy) {
+    public void addMember(Long boardId, MemberRequest request, Long addedBy, String authToken) {
         
         Board board = boardRepo.findById(boardId)
                 .orElseThrow(() -> new RuntimeException("Board not found"));
@@ -225,7 +230,7 @@ public class BoardService {
         }
         
         // Check if user is workspace member
-        Boolean isWorkspaceMember = workspaceClient.checkMembership(board.getWorkspaceId(), request.getUserId());
+        Boolean isWorkspaceMember = workspaceClient.checkMembership(board.getWorkspaceId(), request.getUserId(), authToken);
         
         if (isWorkspaceMember == null || !isWorkspaceMember) {
             throw new RuntimeException("User is not a member of this workspace");
@@ -244,13 +249,16 @@ public class BoardService {
         
         memberRepo.save(member);
         log.info("User {} added to board {} as {}", request.getUserId(), boardId, member.getRole());
+        
+        // Send notification
+        sendInvitationNotification(board, request.getUserId(), addedBy, authToken);
     }
     
     /**
      * Remove member from board
      */
     @Transactional
-    public void removeMember(Long boardId, Long userId, Long removedBy) {
+    public void removeMember(Long boardId, Long userId, Long removedBy, String authToken) {
         
         // Only admin can remove, or user can remove themselves
         if (!userId.equals(removedBy) && !isBoardAdmin(boardId, removedBy)) {
@@ -276,7 +284,7 @@ public class BoardService {
      * Update member role
      */
     @Transactional
-    public void updateMemberRole(Long boardId, Long userId, String newRole, Long updatedBy) {
+    public void updateMemberRole(Long boardId, Long userId, String newRole, Long updatedBy, String authToken) {
         
         if (!isBoardAdmin(boardId, updatedBy)) {
             throw new RuntimeException("Only board admin can change roles");
@@ -294,9 +302,9 @@ public class BoardService {
     /**
      * Get all board members
      */
-    public List<BoardMember> getBoardMembers(Long boardId, Long userId) {
+    public List<BoardMember> getBoardMembers(Long boardId, Long userId, String authToken) {
         
-        if (!hasAccess(boardId, userId)) {
+        if (!hasAccess(boardId, userId, authToken)) {
             throw new RuntimeException("You don't have access to this board");
         }
         
@@ -305,18 +313,42 @@ public class BoardService {
     
     // ---------- HELPER METHODS ----------
     
-    private boolean hasAccess(Board board, Long userId) {
+    private void sendInvitationNotification(Board board, Long userId, Long inviterId, String authToken) {
+        try {
+            Map<String, Object> assignee = authClient.getUserById(userId, authToken);
+            Map<String, Object> inviter = authClient.getUserById(inviterId, authToken);
+            Map<String, Object> workspace = workspaceClient.getWorkspaceById(board.getWorkspaceId(), authToken);
+            
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(assignee.get("email").toString());
+            msg.setName(assignee.get("fullName").toString());
+            msg.setType("INVITE");
+            msg.setInviterName(inviter.get("fullName").toString());
+            msg.setBoardName(board.getName());
+            msg.setWorkspaceName(workspace.get("name").toString());
+            msg.setRecipientId(userId);
+            msg.setActorId(inviterId);
+            msg.setExtraData("http://localhost:4200/board/" + board.getId());
+
+            messageProducer.sendNotification(msg);
+            log.info("Board invitation notification sent to {}", msg.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send board invitation notification: {}", e.getMessage());
+        }
+    }
+    
+    private boolean hasAccess(Board board, Long userId, String authToken) {
         // Public boards are visible to all workspace members
         if ("PUBLIC".equals(board.getVisibility())) {
-            return workspaceClient.checkMembership(board.getWorkspaceId(), userId);
+            return workspaceClient.checkMembership(board.getWorkspaceId(), userId, authToken);
         }
         // Private boards - only members can see
         return memberRepo.existsByBoardIdAndUserId(board.getId(), userId);
     }
     
-    private boolean hasAccess(Long boardId, Long userId) {
+    private boolean hasAccess(Long boardId, Long userId, String authToken) {
         Board board = boardRepo.findById(boardId).orElse(null);
-        return board != null && hasAccess(board, userId);
+        return board != null && hasAccess(board, userId, authToken);
     }
     
     private boolean isBoardAdmin(Long boardId, Long userId) {

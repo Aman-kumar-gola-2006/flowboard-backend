@@ -6,11 +6,16 @@ import lombok.Setter;
 import lombok.ToString;
 import java.time.LocalDateTime;
 
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
 @Entity
 @Table(name = "notifications")
 @Getter
 @Setter
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class Notification {
     
     @Id
@@ -22,6 +27,9 @@ public class Notification {
     
     @Column(name = "actor_id")
     private Long actorId;
+    
+    @Column(name = "actor_name")
+    private String actorName;
     
     @Column(nullable = false)
     private String type; // ASSIGNMENT, MENTION, DUE_DATE, COMMENT, MOVE

@@ -32,14 +32,14 @@ public class ListService {
      * Automatically assigns the next available position.
      */
     @Transactional
-    public ListResponse createList(ListRequest request, Long userId) {
+    public ListResponse createList(ListRequest request, Long userId, String authToken) {
         
         log.info("Creating list '{}' for board {} by user {}", 
                  request.getName(), request.getBoardId(), userId);
         
         // Check if user has access to the board
         try {
-            boardClient.getBoardById(request.getBoardId(), userId);
+            boardClient.getBoardById(request.getBoardId(), userId, authToken);
         } catch (Exception e) {
             log.error("Board access check failed for board {} and user {}: {}", 
                       request.getBoardId(), userId, e.getMessage());
@@ -68,13 +68,13 @@ public class ListService {
     /**
      * Get all active lists for a board, ordered by position.
      */
-    public List<ListResponse> getListsByBoard(Long boardId, Long userId, boolean includeArchived) {
+    public List<ListResponse> getListsByBoard(Long boardId, Long userId, boolean includeArchived, String authToken) {
         
         log.info("Fetching lists for board: {}", boardId);
         
         // Check board access
         try {
-            boardClient.getBoardById(boardId, userId);
+            boardClient.getBoardById(boardId, userId, authToken);
         } catch (Exception e) {
             log.error("Failed to fetch lists for board {}: {}", boardId, e.getMessage());
             throw new RuntimeException("Board not found or access denied: " + e.getMessage());
@@ -95,14 +95,14 @@ public class ListService {
     /**
      * Get a single list by ID.
      */
-    public ListResponse getListById(Long listId, Long userId) {
+    public ListResponse getListById(Long listId, Long userId, String authToken) {
         
         TaskList list = listRepo.findById(listId)
                 .orElseThrow(() -> new RuntimeException("List not found with id: " + listId));
         
         // Verify board access
         try {
-            boardClient.getBoardById(list.getBoardId(), userId);
+            boardClient.getBoardById(list.getBoardId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -114,14 +114,14 @@ public class ListService {
      * Update list details (name, color).
      */
     @Transactional
-    public ListResponse updateList(Long listId, ListRequest request, Long userId) {
+    public ListResponse updateList(Long listId, ListRequest request, Long userId, String authToken) {
         
         TaskList list = listRepo.findById(listId)
                 .orElseThrow(() -> new RuntimeException("List not found"));
         
         // Check access
         try {
-            boardClient.getBoardById(list.getBoardId(), userId);
+            boardClient.getBoardById(list.getBoardId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -143,13 +143,13 @@ public class ListService {
      * Updates position for all lists in the given order.
      */
     @Transactional
-    public List<ListResponse> reorderLists(Long boardId, ReorderRequest request, Long userId) {
+    public List<ListResponse> reorderLists(Long boardId, ReorderRequest request, Long userId, String authToken) {
         
         log.info("Reordering lists for board: {}", boardId);
         
         // Check access
         try {
-            boardClient.getBoardById(boardId, userId);
+            boardClient.getBoardById(boardId, userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -173,20 +173,20 @@ public class ListService {
         
         log.info("Reordered {} lists", orderedIds.size());
         
-        return getListsByBoard(boardId, userId, false);
+        return getListsByBoard(boardId, userId, false, authToken);
     }
     
     /**
      * Archive a list (soft delete).
      */
     @Transactional
-    public void archiveList(Long listId, Long userId) {
+    public void archiveList(Long listId, Long userId, String authToken) {
         
         TaskList list = listRepo.findById(listId)
                 .orElseThrow(() -> new RuntimeException("List not found"));
         
         try {
-            boardClient.getBoardById(list.getBoardId(), userId);
+            boardClient.getBoardById(list.getBoardId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -202,13 +202,13 @@ public class ListService {
      * Unarchive a list.
      */
     @Transactional
-    public void unarchiveList(Long listId, Long userId) {
+    public void unarchiveList(Long listId, Long userId, String authToken) {
         
         TaskList list = listRepo.findById(listId)
                 .orElseThrow(() -> new RuntimeException("List not found"));
         
         try {
-            boardClient.getBoardById(list.getBoardId(), userId);
+            boardClient.getBoardById(list.getBoardId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -224,13 +224,13 @@ public class ListService {
      * Permanently delete a list.
      */
     @Transactional
-    public void deleteList(Long listId, Long userId) {
+    public void deleteList(Long listId, Long userId, String authToken) {
         
         TaskList list = listRepo.findById(listId)
                 .orElseThrow(() -> new RuntimeException("List not found"));
         
         try {
-            boardClient.getBoardById(list.getBoardId(), userId);
+            boardClient.getBoardById(list.getBoardId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -242,10 +242,10 @@ public class ListService {
     /**
      * Get archived lists for a board.
      */
-    public List<ListResponse> getArchivedLists(Long boardId, Long userId) {
+    public List<ListResponse> getArchivedLists(Long boardId, Long userId, String authToken) {
         
         try {
-            boardClient.getBoardById(boardId, userId);
+            boardClient.getBoardById(boardId, userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }

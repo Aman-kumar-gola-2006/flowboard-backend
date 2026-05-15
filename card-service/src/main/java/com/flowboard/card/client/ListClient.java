@@ -10,5 +10,6 @@ public interface ListClient {
     
     @GetMapping("/{listId}")
     Object getListById(@PathVariable Long listId, 
-                       @RequestHeader("X-User-Id") Long userId);
+                       @RequestHeader("X-User-Id") Long userId,
+                       @RequestHeader("Authorization") String token);
 }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -29,7 +30,7 @@ import static org.mockito.Mockito.*;
 class NotificationServiceTest {
 
     @Mock private NotificationRepository notificationRepository;
-    @Mock private NotificationWebSocketHandler webSocketHandler;
+    @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private AuthClient authClient;
     @Mock private RestTemplate restTemplate;
     @Mock private EmailService emailService;
@@ -71,15 +72,14 @@ class NotificationServiceTest {
     @DisplayName("CreateNotification - saves notification and sends WebSocket")
     void createNotification_ShouldSaveAndSendWebSocket() {
         when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
-        doNothing().when(webSocketHandler).sendNotification(any(), any());
-
+        
         Notification result = notificationService.createNotification(testRequest);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
         assertFalse(result.getIsRead());
         verify(notificationRepository).save(any(Notification.class));
-        verify(webSocketHandler).sendNotification(eq(1L), any());
+        verify(messagingTemplate).convertAndSendToUser(anyString(), anyString(), any());
     }
 
     // ========== SEND NOTIFICATION ==========
@@ -88,8 +88,7 @@ class NotificationServiceTest {
     @DisplayName("SendNotification - creates and returns notification response")
     void sendNotification_ShouldReturnNotificationResponse() {
         when(notificationRepository.save(any(Notification.class))).thenReturn(testNotification);
-        doNothing().when(webSocketHandler).sendNotification(any(), any());
-
+        
         NotificationResponse result = notificationService.sendNotification(testRequest);
 
         assertNotNull(result);

@@ -27,6 +27,7 @@ public class CardResponse {
     private LocalDate dueDate;
     private LocalDate startDate;
     private Long assigneeId;
+    private String assigneeName;
     private Long createdBy;
     private String coverColor;
     private Boolean isArchived;

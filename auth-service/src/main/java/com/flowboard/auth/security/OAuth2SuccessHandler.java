@@ -101,7 +101,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         // 1.2 Send Welcome Email via RabbitMQ if new user
         if (isNewUser[0]) {
             try {
-                messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "WELCOME", null));
+                messageProducer.sendNotification(new NotificationMessage(user.getEmail(), user.getFullName(), "WELCOME", null, null, null));
             } catch (Exception e) {
                 System.err.println("Failed to queue welcome email for social user: " + e.getMessage());
             }

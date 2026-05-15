@@ -4,6 +4,7 @@ import com.flowboard.notification.model.Notification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import org.springframework.data.jpa.repository.Modifying;
 
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
@@ -15,4 +16,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     Long countByRecipientIdAndIsReadFalse(Long recipientId);
     
     void deleteByRecipientIdAndIsReadTrue(Long recipientId);
+    
+    void deleteByRecipientId(Long recipientId);
 }

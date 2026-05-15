@@ -6,9 +6,9 @@ import com.flowboard.notification.dto.NotificationResponse;
 import com.flowboard.notification.event.NotificationEvent;
 import com.flowboard.notification.model.Notification;
 import com.flowboard.notification.repository.NotificationRepository;
-import com.flowboard.notification.websocket.NotificationWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +25,7 @@ import org.springframework.web.client.RestTemplate;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final NotificationWebSocketHandler webSocketHandler;
+    private final SimpMessagingTemplate messagingTemplate;
     private final AuthClient authClient;
     private final RestTemplate restTemplate;
     private final EmailService emailService;
@@ -35,6 +35,7 @@ public class NotificationService {
         Notification notification = new Notification();
         notification.setRecipientId(request.getRecipientId());
         notification.setActorId(request.getActorId());
+        notification.setActorName(request.getActorName());
         notification.setType(request.getType());
         notification.setTitle(request.getTitle());
         notification.setMessage(request.getMessage());
@@ -114,10 +115,12 @@ public class NotificationService {
                 "http://localhost:8081/api/auth/users/" + userId, Object.class);
             Map<String, Object> user = (Map<String, Object>) userResponse;
             String email = (String) user.get("email");
+            String taskTitle = (String) card.get("title");
             
             emailService.sendEmail(email, 
                 "FlowBoard - Task Due Soon!",
-                "Your card '" + card.get("title") + "' is due in 1 hour!");
+                "Your card '" + taskTitle + "' is due in 1 hour!", 
+                false);
         } catch (Exception e) {
             log.error("Email failed: {}", e.getMessage());
         }
@@ -125,10 +128,16 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<NotificationResponse> getUserNotifications(Long userId) {
-        return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        log.info("Fetching notifications for user: {}", userId);
+        try {
+            return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId)
+                    .stream()
+                    .map(this::mapToResponse)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Database error fetching notifications: {}", e.getMessage());
+            throw e;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -158,6 +167,16 @@ public class NotificationService {
         notificationRepository.deleteByRecipientIdAndIsReadTrue(userId);
     }
 
+    @Transactional
+    public void deleteNotification(Long id) {
+        notificationRepository.deleteById(id);
+    }
+
+    @Transactional
+    public void deleteAllNotifications(Long userId) {
+        notificationRepository.deleteByRecipientId(userId);
+    }
+
     @Transactional(readOnly = true)
     public List<Notification> getAllNotificationsForAdmin() {
         return notificationRepository.findAll();
@@ -166,19 +185,17 @@ public class NotificationService {
     @Transactional
     public void sendWebSocketNotification(Notification notification) {
         try {
-            Map<String, Object> payload = Map.of(
-                "id", notification.getId(),
-                "type", notification.getType(),
-                "title", notification.getTitle(),
-                "message", notification.getMessage(),
-                "isRead", notification.getIsRead(),
-                "createdAt", notification.getCreatedAt(),
-                "relatedId", notification.getRelatedId(),
-                "relatedType", notification.getRelatedType()
+            NotificationResponse response = mapToResponse(notification);
+            log.info("Sending STOMP notification to user {}: /user/{}/queue/notifications", 
+                     notification.getRecipientId(), notification.getRecipientId());
+            
+            messagingTemplate.convertAndSendToUser(
+                notification.getRecipientId().toString(),
+                "/queue/notifications",
+                response
             );
-            webSocketHandler.sendNotification(notification.getRecipientId(), payload);
         } catch (Exception e) {
-            log.error("Failed to send WebSocket notification", e);
+            log.error("Failed to send WebSocket notification via STOMP", e);
         }
     }
 
@@ -188,15 +205,7 @@ public class NotificationService {
     }
 
     private NotificationResponse mapToResponse(Notification notification) {
-        String actorName = "System";
-        try {
-            if (notification.getActorId() != null) {
-                // Try to get user name from auth service
-                // actorName = authClient.getUserById(notification.getActorId()).getName();
-            }
-        } catch (Exception e) {
-            log.warn("Failed to fetch actor name for user {}", notification.getActorId());
-        }
+        String actorName = notification.getActorName() != null ? notification.getActorName() : "System";
 
         return NotificationResponse.builder()
                 .id(notification.getId())

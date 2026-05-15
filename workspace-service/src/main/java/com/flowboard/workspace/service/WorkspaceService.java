@@ -30,6 +30,7 @@ public class WorkspaceService {
     private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceInvitationRepository invitationRepository;
     private final AuthServiceClient authServiceClient;
+    private final MessageProducer messageProducer;
 
     @Autowired
     private JavaMailSender mailSender;
@@ -186,10 +187,24 @@ public class WorkspaceService {
             WorkspaceMember savedMember = memberRepository.save(member);
             
             // Send email
-            sendInvitationEmail(request.getEmail(), workspace.getName(), false, null);
+
 
             // Send in-app notification
-            sendInAppNotification(user.getId(), actorId != null ? actorId : workspace.getOwnerId(), workspaceId, workspace.getName());
+            // Send Notification via RabbitMQ (Async)
+            try {
+                NotificationMessage msg = new NotificationMessage();
+                msg.setEmail(request.getEmail());
+                msg.setName(user.getFullName());
+                msg.setType("INVITE");
+                msg.setWorkspaceName(workspace.getName());
+                msg.setInviterName("Someone");
+                msg.setRecipientId(user.getId());
+                msg.setActorId(actorId != null ? actorId : workspace.getOwnerId());
+                msg.setExtraData("/login");
+                messageProducer.sendNotification(msg);
+            } catch (Exception e) {
+                log.error("Failed to queue workspace invitation: {}", e.getMessage());
+            }
             
             return mapToMemberResponse(savedMember, user);
         } else {
@@ -208,7 +223,19 @@ public class WorkspaceService {
             WorkspaceInvitation savedInvite = invitationRepository.save(invitation);
             
             // Send email with token
-            sendInvitationEmail(request.getEmail(), workspace.getName(), true, savedInvite.getToken());
+            // Send External Invitation via RabbitMQ (Async)
+            try {
+                NotificationMessage msg = new NotificationMessage();
+                msg.setEmail(request.getEmail());
+                msg.setName("New User");
+                msg.setType("INVITE");
+                msg.setWorkspaceName(workspace.getName());
+                msg.setInviterName("Someone");
+                msg.setExtraData("/register?inviteToken=" + savedInvite.getToken());
+                messageProducer.sendNotification(msg);
+            } catch (Exception e) {
+                log.error("Failed to queue external invitation: {}", e.getMessage());
+            }
 
             return MemberResponse.builder()
                     .userEmail(request.getEmail())
@@ -383,30 +410,53 @@ public class WorkspaceService {
     }
     
     private WorkspaceResponse mapToWorkspaceResponse(Workspace workspace, String authToken) {
-        UserResponse owner = null;
+        String ownerName = "Unknown";
         if (authToken != null && !authToken.isEmpty()) {
             try {
-                owner = authServiceClient.getUserById(workspace.getOwnerId(), authToken);
+                UserResponse owner = authServiceClient.getUserById(workspace.getOwnerId(), authToken);
+                if (owner != null) {
+                    ownerName = (owner.getFullName() != null && !owner.getFullName().isEmpty()) 
+                               ? owner.getFullName() : owner.getUsername();
+                    if (ownerName == null) ownerName = "User " + workspace.getOwnerId();
+                }
             } catch (Exception e) {
-                log.error("Error fetching owner details: {}", e.getMessage());
+                log.warn("Error fetching owner details for workspace {}: {}", workspace.getId(), e.getMessage());
             }
         }
         
-        List<WorkspaceMember> members = memberRepository.findByWorkspace(workspace);
+        List<WorkspaceMember> memberEntities = memberRepository.findByWorkspace(workspace);
+        List<MemberResponse> memberResponses = memberEntities.stream()
+                .map(m -> {
+                    try {
+                        UserResponse u = authServiceClient.getUserById(m.getUserId(), authToken);
+                        return mapToMemberResponse(m, u);
+                    } catch (Exception e) {
+                        return MemberResponse.builder()
+                                .id(m.getId())
+                                .userId(m.getUserId())
+                                .userName("User " + m.getUserId())
+                                .role(m.getRole())
+                                .status(m.getStatus())
+                                .joinedAt(m.getJoinedAt())
+                                .build();
+                    }
+                })
+                .collect(Collectors.toList());
         
         return WorkspaceResponse.builder()
                 .id(workspace.getId())
                 .name(workspace.getName())
                 .description(workspace.getDescription())
                 .ownerId(workspace.getOwnerId())
-                .ownerName(owner != null ? owner.getFullName() : "Unknown")
+                .ownerName(ownerName)
                 .visibility(workspace.getVisibility())
                 .logoUrl(workspace.getLogoUrl())
                 .isActive(workspace.getIsActive())
                 .isPro(workspace.getIsPro())
                 .createdAt(workspace.getCreatedAt())
                 .updatedAt(workspace.getUpdatedAt())
-                .memberCount(members.size())
+                .members(memberResponses)
+                .memberCount(memberEntities.size())
                 .boardCount(0)
                 .build();
     }
@@ -429,13 +479,14 @@ public class WorkspaceService {
             if (authToken != null) {
                 try {
                     UserResponse user = authServiceClient.getUserById(userId, authToken);
-                    userName = user.getFullName() != null ? user.getFullName() : "NoFullName";
+                    userName = (user != null && user.getFullName() != null && !user.getFullName().isEmpty()) 
+                               ? user.getFullName() : (user != null ? user.getUsername() : "User " + userId);
                 } catch (Exception e) {
                     log.warn("Failed to fetch user details for notification: {}", e.getMessage());
-                    userName = "Err: " + e.getClass().getSimpleName();
+                    userName = "User " + userId;
                 }
             } else {
-                userName = "Err: NoToken";
+                userName = "User " + userId;
             }
             Workspace workspace = member.getWorkspace();
             Map<String, Object> notification = new HashMap<>();
@@ -462,12 +513,24 @@ public class WorkspaceService {
     }
     
     private MemberResponse mapToMemberResponse(WorkspaceMember member, UserResponse user) {
+        String displayName = "Unknown User";
+        String email = "";
+        String avatar = "";
+        
+        if (user != null) {
+            displayName = (user.getFullName() != null && !user.getFullName().isEmpty()) 
+                          ? user.getFullName() : user.getUsername();
+            if (displayName == null) displayName = "User " + member.getUserId();
+            email = user.getEmail();
+            avatar = user.getAvatarUrl();
+        }
+        
         return MemberResponse.builder()
                 .id(member.getId())
                 .userId(member.getUserId())
-                .userName(user.getFullName())
-                .userEmail(user.getEmail())
-                .userAvatar(user.getAvatarUrl())
+                .userName(displayName)
+                .userEmail(email)
+                .userAvatar(avatar)
                 .role(member.getRole())
                 .status(member.getStatus())
                 .joinedAt(member.getJoinedAt())

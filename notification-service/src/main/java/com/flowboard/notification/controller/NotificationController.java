@@ -24,13 +24,21 @@ public class NotificationController {
     private SimpMessagingTemplate messagingTemplate;
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<NotificationResponse>> getUserNotifications(@PathVariable Long userId) {
-        return ResponseEntity.ok(notificationService.getUserNotifications(userId));
+    public ResponseEntity<?> getUserNotifications(@PathVariable Long userId) {
+        try {
+            return ResponseEntity.ok(notificationService.getUserNotifications(userId));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage(), "userId", userId));
+        }
     }
 
     @GetMapping("/user/{userId}/unread-count")
-    public ResponseEntity<Map<String, Long>> getUnreadCount(@PathVariable Long userId) {
-        return ResponseEntity.ok(Map.of("count", notificationService.getUnreadCount(userId)));
+    public ResponseEntity<?> getUnreadCount(@PathVariable Long userId) {
+        try {
+            return ResponseEntity.ok(Map.of("count", notificationService.getUnreadCount(userId)));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage(), "userId", userId));
+        }
     }
 
     @PutMapping("/{id}/read")
@@ -48,6 +56,18 @@ public class NotificationController {
     @DeleteMapping("/user/{userId}/clear")
     public ResponseEntity<Void> clearReadNotifications(@PathVariable Long userId) {
         notificationService.clearReadNotifications(userId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteNotification(@PathVariable Long id) {
+        notificationService.deleteNotification(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/user/{userId}/all")
+    public ResponseEntity<Void> deleteAllNotifications(@PathVariable Long userId) {
+        notificationService.deleteAllNotifications(userId);
         return ResponseEntity.ok().build();
     }
 

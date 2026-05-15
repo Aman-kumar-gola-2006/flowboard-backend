@@ -1,9 +1,7 @@
 package com.flowboard.card.service;
 
-import com.flowboard.card.client.ListClient;
-import com.flowboard.card.dto.CardRequest;
-import com.flowboard.card.dto.CardResponse;
-import com.flowboard.card.dto.MoveCardRequest;
+import com.flowboard.card.client.*;
+import com.flowboard.card.dto.*;
 import com.flowboard.card.enums.Priority;
 import com.flowboard.card.enums.Status;
 import com.flowboard.card.model.Card;
@@ -13,6 +11,7 @@ import com.flowboard.card.repository.CardRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,19 +36,30 @@ public class CardService {
     @Autowired
     private CardActivityRepository activityRepo;
 
-    // Injected Redis cache service - handles all position caching
     @Autowired
     private CardPositionCacheService cacheService;
 
+    @Autowired
+    private AuthClient authClient;
+
+    @Autowired
+    private BoardClient boardClient;
+
+    @Autowired
+    private WorkspaceClient workspaceClient;
+
+    @Autowired
+    private MessageProducer messageProducer;
+
     @Transactional
-    public CardResponse createCard(CardRequest request, Long userId) {
+    public CardResponse createCard(CardRequest request, Long userId, String authToken) {
 
         log.info("Creating card '{}' in list {} by user {}",
                  request.getTitle(), request.getListId(), userId);
 
         // Check list access
         try {
-            listClient.getListById(request.getListId(), userId);
+            listClient.getListById(request.getListId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("List not found or access denied");
         }
@@ -78,21 +88,26 @@ public class CardService {
         Card saved = cardRepo.save(card);
         log.info("Card created with ID: {}", saved.getId());
 
+        // Send notification if assigned
+        if (saved.getAssigneeId() != null) {
+            sendAssignmentNotification(saved, authToken);
+        }
+
         // Cache the new card's position in Redis right away
         // Next time someone loads this list, it'll come straight from Redis
         cacheService.cacheCardPosition(saved.getId(), saved.getListId(), saved.getPosition());
 
         logActivity(saved.getId(), userId, "User", "CREATED", "Card created: " + saved.getTitle());
 
-        return mapToResponse(saved);
+        return mapToResponse(saved, authToken);
     }
 
-    public List<CardResponse> getCardsByList(Long listId, Long userId) {
+    public List<CardResponse> getCardsByList(Long listId, Long userId, String authToken) {
 
         log.info("Fetching cards for list: {}", listId);
 
         try {
-            listClient.getListById(listId, userId);
+            listClient.getListById(listId, userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("List not found or access denied");
         }
@@ -113,30 +128,30 @@ public class CardService {
             cacheService.warmListCache(listId, positions);
         }
 
-        return cards.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return cards.stream().map(c -> this.mapToResponse(c, authToken)).collect(Collectors.toList());
     }
 
-    public CardResponse getCardById(Long cardId, Long userId) {
+    public CardResponse getCardById(Long cardId, Long userId, String authToken) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
 
         try {
-            listClient.getListById(card.getListId(), userId);
+            listClient.getListById(card.getListId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
 
-        return mapToResponse(card);
+        return mapToResponse(card, authToken);
     }
 
     @Transactional
-    public CardResponse updateCard(Long cardId, CardRequest request, Long userId) {
+    public CardResponse updateCard(Long cardId, CardRequest request, Long userId, String authToken) {
 
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
 
         try {
-            listClient.getListById(card.getListId(), userId);
+            listClient.getListById(card.getListId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -145,25 +160,56 @@ public class CardService {
         if (request.getDescription() != null) card.setDescription(request.getDescription());
         if (request.getPriority() != null) card.setPriority(request.getPriority());
         if (request.getStatus() != null) card.setStatus(request.getStatus());
+        
+        LocalDate oldDueDate = card.getDueDate();
         if (request.getDueDate() != null) card.setDueDate(request.getDueDate());
         if (request.getStartDate() != null) card.setStartDate(request.getStartDate());
-        if (request.getAssigneeId() != null) card.setAssigneeId(request.getAssigneeId());
+        
+        Long oldAssigneeId = card.getAssigneeId();
+        if (request.getAssigneeId() != null && !request.getAssigneeId().equals(oldAssigneeId)) {
+            // Check if user is Workspace Admin
+            try {
+                Map<String, Object> board = boardClient.getBoardById(card.getBoardId(), userId, authToken);
+                Long workspaceId = Long.valueOf(board.get("workspaceId").toString());
+                Boolean isAdmin = workspaceClient.isWorkspaceAdmin(workspaceId, userId, authToken);
+                if (isAdmin == null || !isAdmin) {
+                    throw new RuntimeException("Authority Denied: Only Workspace Admin can assign tasks");
+                }
+            } catch (Exception e) {
+                if (e.getMessage().contains("Authority Denied")) throw e;
+                log.error("Authority check failed: {}", e.getMessage());
+                throw new RuntimeException("Access Denied: Could not verify workspace authority");
+            }
+            card.setAssigneeId(request.getAssigneeId());
+        }
+        
         if (request.getCoverColor() != null) card.setCoverColor(request.getCoverColor());
 
         card.setUpdatedAt(LocalDateTime.now());
 
         Card updated = cardRepo.save(card);
+        
+        // Send notification if assignee changed or new assignee set
+        if (updated.getAssigneeId() != null && !updated.getAssigneeId().equals(oldAssigneeId)) {
+            sendAssignmentNotification(updated, authToken);
+        }
+        
+        // Send notification if due date changed
+        if (updated.getDueDate() != null && !updated.getDueDate().equals(oldDueDate)) {
+            sendDueDateNotification(updated, authToken);
+        }
+        
         logActivity(cardId, userId, "User", "UPDATED", "Card updated");
-        return mapToResponse(updated);
+        return mapToResponse(updated, authToken);
     }
 
     @Transactional
-    public void updateCardStatus(Long cardId, Status status, Long userId) {
+    public void updateCardStatus(Long cardId, Status status, Long userId, String authToken) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
 
         try {
-            listClient.getListById(card.getListId(), userId);
+            listClient.getListById(card.getListId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -185,7 +231,7 @@ public class CardService {
      * This way the user never stares at a frozen board waiting for the DB.
      */
     @Transactional
-    public List<CardResponse> moveCard(Long cardId, MoveCardRequest request, Long userId) {
+    public List<CardResponse> moveCard(Long cardId, MoveCardRequest request, Long userId, String authToken) {
 
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
@@ -195,8 +241,8 @@ public class CardService {
 
         // Check access to both lists
         try {
-            listClient.getListById(sourceListId, userId);
-            listClient.getListById(targetListId, userId);
+            listClient.getListById(sourceListId, userId, authToken);
+            listClient.getListById(targetListId, userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied to one of the lists");
         }
@@ -241,7 +287,7 @@ public class CardService {
             throw new RuntimeException("Failed to persist card move: " + dbEx.getMessage());
         }
 
-        return getCardsByList(targetListId, userId);
+        return getCardsByList(targetListId, userId, authToken);
     }
 
     private void reorderWithinList(Long cardId, Integer newPosition, Long listId) {
@@ -290,12 +336,12 @@ public class CardService {
     }
 
     @Transactional
-    public void archiveCard(Long cardId, Long userId) {
+    public void archiveCard(Long cardId, Long userId, String authToken) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
 
         try {
-            listClient.getListById(card.getListId(), userId);
+            listClient.getListById(card.getListId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -311,12 +357,12 @@ public class CardService {
     }
 
     @Transactional
-    public void deleteCard(Long cardId, Long userId) {
+    public void deleteCard(Long cardId, Long userId, String authToken) {
         Card card = cardRepo.findById(cardId)
                 .orElseThrow(() -> new RuntimeException("Card not found"));
 
         try {
-            listClient.getListById(card.getListId(), userId);
+            listClient.getListById(card.getListId(), userId, authToken);
         } catch (Exception e) {
             throw new RuntimeException("Access denied");
         }
@@ -329,24 +375,24 @@ public class CardService {
         log.warn("Card {} permanently deleted", cardId);
     }
 
-    public List<CardResponse> getCardsByBoard(Long boardId, Long userId) {
+    public List<CardResponse> getCardsByBoard(Long boardId, Long userId, String authToken) {
         List<Card> cards = cardRepo.findByBoardIdAndIsArchivedFalse(boardId);
-        return cards.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return cards.stream().map(c -> this.mapToResponse(c, authToken)).collect(Collectors.toList());
     }
 
-    public List<CardResponse> getCardsByAssignee(Long assigneeId, Long userId) {
+    public List<CardResponse> getCardsByAssignee(Long assigneeId, Long userId, String authToken) {
         List<Card> cards = cardRepo.findByAssigneeId(assigneeId);
         return cards.stream()
                 .filter(c -> !c.getIsArchived())
-                .map(this::mapToResponse)
+                .map(c -> this.mapToResponse(c, authToken))
                 .collect(Collectors.toList());
     }
 
-    public List<CardResponse> getOverdueCards(Long boardId, Long userId) {
+    public List<CardResponse> getOverdueCards(Long boardId, Long userId, String authToken) {
         List<Card> cards = cardRepo.findByDueDateBeforeAndStatusNot(LocalDate.now(), Status.DONE);
         return cards.stream()
                 .filter(c -> c.getBoardId().equals(boardId) && !c.getIsArchived())
-                .map(this::mapToResponse)
+                .map(c -> this.mapToResponse(c, authToken))
                 .collect(Collectors.toList());
     }
 
@@ -354,11 +400,11 @@ public class CardService {
         return cardRepo.count();
     }
 
-    public List<CardResponse> getAllOverdueCards() {
+    public List<CardResponse> getAllOverdueCards(String authToken) {
         List<Card> overdue = cardRepo.findByDueDateBeforeAndStatusNot(LocalDate.now(), Status.DONE);
         return overdue.stream()
                 .filter(c -> !c.getIsArchived())
-                .map(this::mapToResponse)
+                .map(c -> this.mapToResponse(c, authToken))
                 .collect(Collectors.toList());
     }
 
@@ -372,7 +418,113 @@ public class CardService {
         activityRepo.save(activity);
     }
 
-    private CardResponse mapToResponse(Card card) {
+    @Async
+    protected void sendAssignmentNotification(Card card, String authToken) {
+        try {
+            UserResponse assigneeUser = authClient.getUserById(card.getAssigneeId(), authToken);
+            String assigneeName = (assigneeUser.getFullName() != null && !assigneeUser.getFullName().isEmpty()) 
+                                ? assigneeUser.getFullName() : assigneeUser.getUsername();
+            
+            // Fetch assigner name (createdBy or current user)
+            String assignerName = "Someone";
+            try {
+                UserResponse assignerUser = authClient.getUserById(card.getCreatedBy(), authToken);
+                assignerName = (assignerUser.getFullName() != null && !assignerUser.getFullName().isEmpty()) 
+                             ? assignerUser.getFullName() : assignerUser.getUsername();
+            } catch (Exception e) {
+                log.warn("Could not fetch assigner name: {}", e.getMessage());
+            }
+
+            Map<String, Object> board = boardClient.getBoardById(card.getBoardId(), card.getCreatedBy(), authToken);
+            
+            String workspaceName = "Unknown Workspace";
+            if (board.get("workspaceId") != null) {
+                try {
+                    Long workspaceId = Long.valueOf(board.get("workspaceId").toString());
+                    Map<String, Object> workspace = workspaceClient.getWorkspaceById(workspaceId, authToken);
+                    workspaceName = workspace.get("name").toString();
+                } catch (Exception e) {
+                    log.warn("Could not fetch workspace name: {}", e.getMessage());
+                }
+            }
+
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(assigneeUser.getEmail());
+            msg.setName(assigneeName);
+            msg.setType("ASSIGN");
+            msg.setTaskTitle(card.getTitle());
+            msg.setBoardName(board.get("name").toString());
+            msg.setWorkspaceName(workspaceName);
+            msg.setInviterName(assignerName); // Use this field for "Assigned by"
+            msg.setRecipientId(card.getAssigneeId());
+            msg.setActorId(card.getCreatedBy());
+            msg.setRelatedId(card.getBoardId());
+            msg.setRelatedType("BOARD");
+            msg.setExtraData("/board/" + card.getBoardId());
+
+            messageProducer.sendNotification(msg);
+            log.info("Assignment notification sent to {}", assigneeUser.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send assignment notification: {}", e.getMessage());
+        }
+    }
+
+    @Async
+    protected void sendDueDateNotification(Card card, String authToken) {
+        if (card.getAssigneeId() == null) return;
+
+        try {
+            UserResponse assigneeUser = authClient.getUserById(card.getAssigneeId(), authToken);
+            String assigneeName = (assigneeUser.getFullName() != null && !assigneeUser.getFullName().isEmpty()) 
+                                ? assigneeUser.getFullName() : assigneeUser.getUsername();
+            
+            Map<String, Object> board = boardClient.getBoardById(card.getBoardId(), card.getCreatedBy(), authToken);
+            String workspaceName = "Your Workspace";
+            if (board.get("workspaceId") != null) {
+                try {
+                    Long workspaceId = Long.valueOf(board.get("workspaceId").toString());
+                    Map<String, Object> workspace = workspaceClient.getWorkspaceById(workspaceId, authToken);
+                    workspaceName = workspace.get("name").toString();
+                } catch (Exception e) {}
+            }
+
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(assigneeUser.getEmail());
+            msg.setName(assigneeName);
+            msg.setType("DUE_DATE");
+            msg.setBoardName(board.get("name").toString());
+            msg.setWorkspaceName(workspaceName);
+            msg.setRecipientId(card.getAssigneeId());
+            msg.setActorId(card.getCreatedBy());
+            msg.setRelatedId(card.getBoardId());
+            msg.setRelatedType("BOARD");
+            msg.setExtraData("/board/" + card.getBoardId());
+
+            messageProducer.sendNotification(msg);
+            log.info("Due date notification sent to {}", msg.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send due date notification: {}", e.getMessage());
+        }
+    }
+
+    private CardResponse mapToResponse(Card card, String authToken) {
+        String assigneeName = null;
+        if (card.getAssigneeId() != null) {
+            try {
+                UserResponse user = authClient.getUserById(card.getAssigneeId(), authToken);
+                if (user.getFullName() != null && !user.getFullName().isEmpty()) {
+                    assigneeName = user.getFullName();
+                } else if (user.getUsername() != null && !user.getUsername().isEmpty()) {
+                    assigneeName = user.getUsername();
+                } else {
+                    assigneeName = "User " + card.getAssigneeId();
+                }
+            } catch (Exception e) {
+                log.warn("Could not fetch assignee name for ID {}: {}", card.getAssigneeId(), e.getMessage());
+                assigneeName = "User " + card.getAssigneeId();
+            }
+        }
+
         return CardResponse.builder()
                 .id(card.getId())
                 .listId(card.getListId())
@@ -385,6 +537,7 @@ public class CardService {
                 .dueDate(card.getDueDate())
                 .startDate(card.getStartDate())
                 .assigneeId(card.getAssigneeId())
+                .assigneeName(assigneeName)
                 .createdBy(card.getCreatedBy())
                 .coverColor(card.getCoverColor())
                 .isArchived(card.getIsArchived())

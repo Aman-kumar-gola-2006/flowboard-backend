@@ -7,7 +7,7 @@ spring:
   datasource:
     # Make sure MySQL is running buddy
     url: jdbc:mysql://localhost:3306/flowboard_board?createDatabaseIfNotExist=true
-    username: admin
+    username: root
     password: 05092006
   jpa:
     hibernate:
@@ -16,6 +16,15 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    notification:
+      queue: notification_queue
+      exchange: notification_exchange
+      routing-key: notification_routing_key
 
 server:
   port: 8083

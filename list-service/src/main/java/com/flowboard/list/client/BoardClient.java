@@ -18,5 +18,6 @@ public interface BoardClient {
     // TODO: Add proper permission endpoint in Board Service
     @GetMapping("/{boardId}")
     Object getBoardById(@PathVariable Long boardId, 
-                        @RequestHeader("X-User-Id") Long userId);
+                        @RequestHeader("X-User-Id") Long userId,
+                        @RequestHeader("Authorization") String token);
 }

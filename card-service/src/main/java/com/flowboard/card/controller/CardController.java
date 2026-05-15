@@ -114,9 +114,10 @@ public class CardController {
     
     @PostMapping
     public ResponseEntity<?> createCard(@RequestBody CardRequest request,
-                                        @RequestHeader("X-User-Id") Long userId) {
+                                        @RequestHeader("X-User-Id") Long userId,
+                                        @RequestHeader("Authorization") String token) {
         try {
-            CardResponse response = cardService.createCard(request, userId);
+            CardResponse response = cardService.createCard(request, userId, token);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -125,9 +126,10 @@ public class CardController {
     
     @GetMapping("/list/{listId}")
     public ResponseEntity<?> getCardsByList(@PathVariable Long listId,
-                                            @RequestHeader("X-User-Id") Long userId) {
+                                            @RequestHeader("X-User-Id") Long userId,
+                                            @RequestHeader("Authorization") String token) {
         try {
-            List<CardResponse> cards = cardService.getCardsByList(listId, userId);
+            List<CardResponse> cards = cardService.getCardsByList(listId, userId, token);
             return ResponseEntity.ok(cards);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -136,9 +138,10 @@ public class CardController {
     
     @GetMapping("/{cardId}")
     public ResponseEntity<?> getCardById(@PathVariable Long cardId,
-                                         @RequestHeader("X-User-Id") Long userId) {
+                                         @RequestHeader("X-User-Id") Long userId,
+                                         @RequestHeader("Authorization") String token) {
         try {
-            CardResponse card = cardService.getCardById(cardId, userId);
+            CardResponse card = cardService.getCardById(cardId, userId, token);
             return ResponseEntity.ok(card);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -147,9 +150,10 @@ public class CardController {
     
     @GetMapping("/board/{boardId}")
     public ResponseEntity<?> getCardsByBoard(@PathVariable Long boardId,
-                                             @RequestHeader("X-User-Id") Long userId) {
+                                             @RequestHeader("X-User-Id") Long userId,
+                                             @RequestHeader("Authorization") String token) {
         try {
-            List<CardResponse> cards = cardService.getCardsByBoard(boardId, userId);
+            List<CardResponse> cards = cardService.getCardsByBoard(boardId, userId, token);
             return ResponseEntity.ok(cards);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -159,9 +163,10 @@ public class CardController {
     @PutMapping("/{cardId}")
     public ResponseEntity<?> updateCard(@PathVariable Long cardId,
                                         @RequestBody CardRequest request,
-                                        @RequestHeader("X-User-Id") Long userId) {
+                                        @RequestHeader("X-User-Id") Long userId,
+                                        @RequestHeader("Authorization") String token) {
         try {
-            CardResponse response = cardService.updateCard(cardId, request, userId);
+            CardResponse response = cardService.updateCard(cardId, request, userId, token);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -171,10 +176,11 @@ public class CardController {
     @PutMapping("/{cardId}/status")
     public ResponseEntity<?> updateCardStatus(@PathVariable Long cardId,
                                               @RequestBody Map<String, String> payload,
-                                              @RequestHeader("X-User-Id") Long userId) {
+                                              @RequestHeader("X-User-Id") Long userId,
+                                              @RequestHeader("Authorization") String token) {
         try {
             Status status = Status.valueOf(payload.get("status"));
-            cardService.updateCardStatus(cardId, status, userId);
+            cardService.updateCardStatus(cardId, status, userId, token);
             return ResponseEntity.ok(new MessageResponse("Status updated", true));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -184,9 +190,10 @@ public class CardController {
     @PutMapping("/{cardId}/move")
     public ResponseEntity<?> moveCard(@PathVariable Long cardId,
                                       @RequestBody MoveCardRequest request,
-                                      @RequestHeader("X-User-Id") Long userId) {
+                                      @RequestHeader("X-User-Id") Long userId,
+                                      @RequestHeader("Authorization") String token) {
         try {
-            List<CardResponse> cards = cardService.moveCard(cardId, request, userId);
+            List<CardResponse> cards = cardService.moveCard(cardId, request, userId, token);
             return ResponseEntity.ok(cards);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -195,9 +202,10 @@ public class CardController {
     
     @PutMapping("/{cardId}/archive")
     public ResponseEntity<?> archiveCard(@PathVariable Long cardId,
-                                         @RequestHeader("X-User-Id") Long userId) {
+                                         @RequestHeader("X-User-Id") Long userId,
+                                         @RequestHeader("Authorization") String token) {
         try {
-            cardService.archiveCard(cardId, userId);
+            cardService.archiveCard(cardId, userId, token);
             return ResponseEntity.ok(new MessageResponse("Card archived", true));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -206,9 +214,10 @@ public class CardController {
     
     @DeleteMapping("/{cardId}")
     public ResponseEntity<?> deleteCard(@PathVariable Long cardId,
-                                        @RequestHeader("X-User-Id") Long userId) {
+                                        @RequestHeader("X-User-Id") Long userId,
+                                        @RequestHeader("Authorization") String token) {
         try {
-            cardService.deleteCard(cardId, userId);
+            cardService.deleteCard(cardId, userId, token);
             return ResponseEntity.ok(new MessageResponse("Card deleted", true));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -217,9 +226,10 @@ public class CardController {
     
     @GetMapping("/assignee/{userId}")
     public ResponseEntity<?> getCardsByAssignee(@PathVariable Long userId,
-                                                @RequestHeader("X-User-Id") Long requestUserId) {
+                                                @RequestHeader("X-User-Id") Long requestUserId,
+                                                @RequestHeader("Authorization") String token) {
         try {
-            List<CardResponse> cards = cardService.getCardsByAssignee(userId, requestUserId);
+            List<CardResponse> cards = cardService.getCardsByAssignee(userId, requestUserId, token);
             return ResponseEntity.ok(cards);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -228,9 +238,10 @@ public class CardController {
     
     @GetMapping("/board/{boardId}/overdue")
     public ResponseEntity<?> getOverdueCards(@PathVariable Long boardId,
-                                             @RequestHeader("X-User-Id") Long userId) {
+                                             @RequestHeader("X-User-Id") Long userId,
+                                             @RequestHeader("Authorization") String token) {
         try {
-            List<CardResponse> cards = cardService.getOverdueCards(boardId, userId);
+            List<CardResponse> cards = cardService.getOverdueCards(boardId, userId, token);
             return ResponseEntity.ok(cards);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -243,8 +254,8 @@ public class CardController {
     }
 
     @GetMapping("/overdue/all")
-    public ResponseEntity<?> getAllOverdueCards() {
-        return ResponseEntity.ok(cardService.getAllOverdueCards());
+    public ResponseEntity<?> getAllOverdueCards(@RequestHeader("Authorization") String token) {
+        return ResponseEntity.ok(cardService.getAllOverdueCards(token));
     }
     
     private Map<String, Object> errorResponse(String message) {

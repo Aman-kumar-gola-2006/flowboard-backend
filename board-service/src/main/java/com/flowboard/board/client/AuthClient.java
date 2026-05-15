@@ -1,23 +1,14 @@
 package com.flowboard.board.client;
 
-import lombok.Data;
+import java.util.Map;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-@FeignClient(name = "auth-service")
+@FeignClient(name = "auth-service", url = "http://localhost:8081", path = "/api/auth")
 public interface AuthClient {
-
-    @GetMapping("/api/auth/users/{userId}")
-    UserResponse getUserById(@PathVariable("userId") Long userId, 
-                             @RequestHeader("Authorization") String token);
-
-    @Data
-    class UserResponse {
-        private Long id;
-        private String username;
-        private String email;
-        private String fullName;
-    }
+    
+    @GetMapping("/users/{id}")
+    Map<String, Object> getUserById(@PathVariable("id") Long id, @RequestHeader("Authorization") String token);
 }

@@ -27,9 +27,10 @@ public class ListController {
      */
     @PostMapping
     public ResponseEntity<?> createList(@RequestBody ListRequest request,
-                                        @RequestHeader("X-User-Id") Long userId) {
+                                        @RequestHeader("X-User-Id") Long userId,
+                                        @RequestHeader("Authorization") String token) {
         try {
-            ListResponse response = listService.createList(request, userId);
+            ListResponse response = listService.createList(request, userId, token);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -42,9 +43,10 @@ public class ListController {
     @GetMapping("/board/{boardId}")
     public ResponseEntity<?> getListsByBoard(@PathVariable Long boardId,
                                              @RequestHeader("X-User-Id") Long userId,
+                                             @RequestHeader("Authorization") String token,
                                              @RequestParam(defaultValue = "false") boolean includeArchived) {
         try {
-            List<ListResponse> lists = listService.getListsByBoard(boardId, userId, includeArchived);
+            List<ListResponse> lists = listService.getListsByBoard(boardId, userId, includeArchived, token);
             return ResponseEntity.ok(lists);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -56,9 +58,10 @@ public class ListController {
      */
     @GetMapping("/{listId}")
     public ResponseEntity<?> getListById(@PathVariable Long listId,
-                                         @RequestHeader("X-User-Id") Long userId) {
+                                         @RequestHeader("X-User-Id") Long userId,
+                                         @RequestHeader("Authorization") String token) {
         try {
-            ListResponse response = listService.getListById(listId, userId);
+            ListResponse response = listService.getListById(listId, userId, token);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -71,9 +74,10 @@ public class ListController {
     @PutMapping("/{listId}")
     public ResponseEntity<?> updateList(@PathVariable Long listId,
                                         @RequestBody ListRequest request,
-                                        @RequestHeader("X-User-Id") Long userId) {
+                                        @RequestHeader("X-User-Id") Long userId,
+                                        @RequestHeader("Authorization") String token) {
         try {
-            ListResponse response = listService.updateList(listId, request, userId);
+            ListResponse response = listService.updateList(listId, request, userId, token);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -86,9 +90,10 @@ public class ListController {
     @PutMapping("/board/{boardId}/reorder")
     public ResponseEntity<?> reorderLists(@PathVariable Long boardId,
                                           @RequestBody ReorderRequest request,
-                                          @RequestHeader("X-User-Id") Long userId) {
+                                          @RequestHeader("X-User-Id") Long userId,
+                                          @RequestHeader("Authorization") String token) {
         try {
-            List<ListResponse> lists = listService.reorderLists(boardId, request, userId);
+            List<ListResponse> lists = listService.reorderLists(boardId, request, userId, token);
             return ResponseEntity.ok(lists);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -100,9 +105,10 @@ public class ListController {
      */
     @PutMapping("/{listId}/archive")
     public ResponseEntity<?> archiveList(@PathVariable Long listId,
-                                         @RequestHeader("X-User-Id") Long userId) {
+                                         @RequestHeader("X-User-Id") Long userId,
+                                         @RequestHeader("Authorization") String token) {
         try {
-            listService.archiveList(listId, userId);
+            listService.archiveList(listId, userId, token);
             return ResponseEntity.ok(new MessageResponse("List archived successfully", true));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -114,9 +120,10 @@ public class ListController {
      */
     @PutMapping("/{listId}/unarchive")
     public ResponseEntity<?> unarchiveList(@PathVariable Long listId,
-                                           @RequestHeader("X-User-Id") Long userId) {
+                                           @RequestHeader("X-User-Id") Long userId,
+                                           @RequestHeader("Authorization") String token) {
         try {
-            listService.unarchiveList(listId, userId);
+            listService.unarchiveList(listId, userId, token);
             return ResponseEntity.ok(new MessageResponse("List unarchived successfully", true));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -128,9 +135,10 @@ public class ListController {
      */
     @DeleteMapping("/{listId}")
     public ResponseEntity<?> deleteList(@PathVariable Long listId,
-                                        @RequestHeader("X-User-Id") Long userId) {
+                                        @RequestHeader("X-User-Id") Long userId,
+                                        @RequestHeader("Authorization") String token) {
         try {
-            listService.deleteList(listId, userId);
+            listService.deleteList(listId, userId, token);
             return ResponseEntity.ok(new MessageResponse("List deleted permanently", true));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
@@ -142,9 +150,10 @@ public class ListController {
      */
     @GetMapping("/board/{boardId}/archived")
     public ResponseEntity<?> getArchivedLists(@PathVariable Long boardId,
-                                              @RequestHeader("X-User-Id") Long userId) {
+                                              @RequestHeader("X-User-Id") Long userId,
+                                              @RequestHeader("Authorization") String token) {
         try {
-            List<ListResponse> lists = listService.getArchivedLists(boardId, userId);
+            List<ListResponse> lists = listService.getArchivedLists(boardId, userId, token);
             return ResponseEntity.ok(lists);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));

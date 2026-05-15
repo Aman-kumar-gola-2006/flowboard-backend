@@ -3,15 +3,21 @@ package com.flowboard.auth.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class EmailService {
     
     @Autowired
     private JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     private String getHtmlTemplate(String title, String name, String content, String actionText, String actionUrl) {
         return "<div style=\"font-family: 'Inter', Arial, sans-serif; background-color: #f8fafc; padding: 40px 20px; color: #1e293b;\">" +
@@ -41,9 +47,12 @@ public class EmailService {
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);
+            helper.setFrom(fromEmail);
+            
             mailSender.send(message);
+            log.info("Email sent successfully to: {}", to);
         } catch (MessagingException e) {
-            System.err.println("Failed to send HTML email: " + e.getMessage());
+            log.error("Failed to send HTML email to {}: {}", to, e.getMessage());
             throw new RuntimeException("Email delivery failed");
         }
     }
@@ -81,20 +90,5 @@ public class EmailService {
                          "<strong>Message:</strong><br>" + problem;
         String html = getHtmlTemplate("Support Request Received", "Admin", content, "Respond in Admin Panel", "http://localhost:4200/admin");
         sendHtmlEmail("amanagola9841@gmail.com", "FlowBoard Support: " + subject, html);
-    }
-
-    public void sendSuspensionEmail(String to, String name) {
-        String content = "Important security update: Your account has been suspended due to suspicious activity detected on the platform. This action has been taken to protect your data and our community.<br><br>" +
-                         "<strong>How to unblock your account:</strong><br>" +
-                         "Please contact our support team immediately to verify your identity and request account reactivation. Our team is here to help you resolve this issue.";
-        String html = getHtmlTemplate("Account Suspended ⚠️", name, content, "Contact Support", "mailto:amanagola9841@gmail.com");
-        sendHtmlEmail(to, "Security Alert: Your FlowBoard account has been suspended", html);
-    }
-
-    public void sendReactivationEmail(String to, String name) {
-        String content = "Great news! Your account has been reviewed and successfully reactivated. You can now log back in and continue organizing your projects with FlowBoard.<br><br>" +
-                         "We appreciate your patience during the review process. Welcome back to the community!";
-        String html = getHtmlTemplate("Account Reactivated 🎉", name, content, "Log In to FlowBoard", "http://localhost:4200/login");
-        sendHtmlEmail(to, "Welcome Back! Your FlowBoard account is now active", html);
     }
 }

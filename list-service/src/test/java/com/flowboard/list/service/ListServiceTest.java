@@ -34,6 +34,7 @@ class ListServiceTest {
     private ListService listService;
 
     private TaskList testList;
+    private final String authToken = "Bearer mock-token";
 
     @BeforeEach
     void setUp() {
@@ -57,11 +58,11 @@ class ListServiceTest {
         request.setBoardId(10L);
         request.setName("In Progress");
 
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null); // no exception = success
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null); // no exception = success
         when(listRepo.findMaxPositionByBoardId(10L)).thenReturn(null);
         when(listRepo.save(any(TaskList.class))).thenReturn(testList);
 
-        ListResponse result = listService.createList(request, 1L);
+        ListResponse result = listService.createList(request, 1L, authToken);
 
         assertNotNull(result);
         assertEquals("To Do", result.getName());
@@ -75,7 +76,7 @@ class ListServiceTest {
         request.setBoardId(10L);
         request.setName("First List");
 
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.findMaxPositionByBoardId(10L)).thenReturn(null);
         when(listRepo.save(any(TaskList.class))).thenAnswer(inv -> {
             TaskList list = inv.getArgument(0);
@@ -83,7 +84,7 @@ class ListServiceTest {
             return testList;
         });
 
-        listService.createList(request, 1L);
+        listService.createList(request, 1L, authToken);
     }
 
     @Test
@@ -93,7 +94,7 @@ class ListServiceTest {
         request.setBoardId(10L);
         request.setName("Done");
 
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.findMaxPositionByBoardId(10L)).thenReturn(2);
         when(listRepo.save(any(TaskList.class))).thenAnswer(inv -> {
             TaskList list = inv.getArgument(0);
@@ -101,7 +102,7 @@ class ListServiceTest {
             return testList;
         });
 
-        listService.createList(request, 1L);
+        listService.createList(request, 1L, authToken);
     }
 
     @Test
@@ -111,9 +112,9 @@ class ListServiceTest {
         request.setBoardId(10L);
         request.setName("Test");
 
-        when(boardClient.getBoardById(10L, 1L)).thenThrow(new RuntimeException("Access denied"));
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenThrow(new RuntimeException("Access denied"));
 
-        assertThrows(RuntimeException.class, () -> listService.createList(request, 1L));
+        assertThrows(RuntimeException.class, () -> listService.createList(request, 1L, authToken));
         verify(listRepo, never()).save(any());
     }
 
@@ -122,11 +123,11 @@ class ListServiceTest {
     @Test
     @DisplayName("GetListsByBoard - returns active lists when not including archived")
     void getListsByBoard_ShouldReturnActiveLists() {
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.findByBoardIdAndIsArchivedOrderByPositionAsc(10L, false))
                 .thenReturn(List.of(testList));
 
-        List<ListResponse> results = listService.getListsByBoard(10L, 1L, false);
+        List<ListResponse> results = listService.getListsByBoard(10L, 1L, false, authToken);
 
         assertThat(results).hasSize(1);
         assertEquals("To Do", results.get(0).getName());
@@ -143,10 +144,10 @@ class ListServiceTest {
         archived.setPosition(1);
         archived.setColor("#ccc");
 
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.findByBoardIdOrderByPositionAsc(10L)).thenReturn(List.of(testList, archived));
 
-        List<ListResponse> results = listService.getListsByBoard(10L, 1L, true);
+        List<ListResponse> results = listService.getListsByBoard(10L, 1L, true, authToken);
 
         assertThat(results).hasSize(2);
     }
@@ -157,9 +158,9 @@ class ListServiceTest {
     @DisplayName("GetListById - returns list when found and board accessible")
     void getListById_WhenFoundAndAccessible_ShouldReturnList() {
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
 
-        ListResponse result = listService.getListById(1L, 1L);
+        ListResponse result = listService.getListById(1L, 1L, authToken);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
@@ -171,16 +172,16 @@ class ListServiceTest {
     void getListById_WhenNotFound_ShouldThrowException() {
         when(listRepo.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> listService.getListById(999L, 1L));
+        assertThrows(RuntimeException.class, () -> listService.getListById(999L, 1L, authToken));
     }
 
     @Test
     @DisplayName("GetListById - throws when board access denied")
     void getListById_WhenBoardAccessDenied_ShouldThrowException() {
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
-        when(boardClient.getBoardById(10L, 1L)).thenThrow(new RuntimeException("Denied"));
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenThrow(new RuntimeException("Denied"));
 
-        assertThrows(RuntimeException.class, () -> listService.getListById(1L, 1L));
+        assertThrows(RuntimeException.class, () -> listService.getListById(1L, 1L, authToken));
     }
 
     // ========== UPDATE LIST ==========
@@ -192,10 +193,10 @@ class ListServiceTest {
         request.setName("In Progress");
 
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.save(any(TaskList.class))).thenReturn(testList);
 
-        ListResponse result = listService.updateList(1L, request, 1L);
+        ListResponse result = listService.updateList(1L, request, 1L, authToken);
 
         assertNotNull(result);
         assertEquals("In Progress", testList.getName());
@@ -207,10 +208,10 @@ class ListServiceTest {
     @DisplayName("ArchiveList - sets isArchived to true")
     void archiveList_ShouldSetArchivedTrue() {
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.save(any(TaskList.class))).thenReturn(testList);
 
-        assertDoesNotThrow(() -> listService.archiveList(1L, 1L));
+        assertDoesNotThrow(() -> listService.archiveList(1L, 1L, authToken));
         assertTrue(testList.getIsArchived());
     }
 
@@ -220,10 +221,10 @@ class ListServiceTest {
         testList.setIsArchived(true);
 
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.save(any(TaskList.class))).thenReturn(testList);
 
-        assertDoesNotThrow(() -> listService.unarchiveList(1L, 1L));
+        assertDoesNotThrow(() -> listService.unarchiveList(1L, 1L, authToken));
         assertFalse(testList.getIsArchived());
     }
 
@@ -233,10 +234,10 @@ class ListServiceTest {
     @DisplayName("DeleteList - deletes when accessible")
     void deleteList_WhenAccessible_ShouldDelete() {
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         doNothing().when(listRepo).delete(testList);
 
-        assertDoesNotThrow(() -> listService.deleteList(1L, 1L));
+        assertDoesNotThrow(() -> listService.deleteList(1L, 1L, authToken));
         verify(listRepo).delete(testList);
     }
 
@@ -256,14 +257,14 @@ class ListServiceTest {
         ReorderRequest request = new ReorderRequest();
         request.setListIds(List.of(2L, 1L)); // Swap order
 
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.findById(2L)).thenReturn(Optional.of(list2));
         when(listRepo.findById(1L)).thenReturn(Optional.of(testList));
         when(listRepo.save(any(TaskList.class))).thenReturn(testList);
         when(listRepo.findByBoardIdAndIsArchivedOrderByPositionAsc(10L, false))
                 .thenReturn(List.of(list2, testList));
 
-        List<ListResponse> results = listService.reorderLists(10L, request, 1L);
+        List<ListResponse> results = listService.reorderLists(10L, request, 1L, authToken);
 
         assertThat(results).hasSize(2);
         verify(listRepo, times(2)).save(any(TaskList.class));
@@ -280,9 +281,9 @@ class ListServiceTest {
         ReorderRequest request = new ReorderRequest();
         request.setListIds(List.of(2L));
 
-        when(boardClient.getBoardById(10L, 1L)).thenReturn(null);
+        when(boardClient.getBoardById(10L, 1L, authToken)).thenReturn(null);
         when(listRepo.findById(2L)).thenReturn(Optional.of(foreignList));
 
-        assertThrows(RuntimeException.class, () -> listService.reorderLists(10L, request, 1L));
+        assertThrows(RuntimeException.class, () -> listService.reorderLists(10L, request, 1L, authToken));
     }
 }

@@ -41,6 +41,7 @@ class CardServiceTest {
     private CardService cardService;
 
     private Card testCard;
+    private final String authToken = "Bearer test-token";
 
     @BeforeEach
     void setUp() {
@@ -71,12 +72,12 @@ class CardServiceTest {
         request.setTitle("New Card");
         request.setPriority(Priority.HIGH);
 
-        when(listClient.getListById(10L, 1L)).thenReturn(null); // success = no exception
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null); // success = no exception
         when(cardRepo.findMaxPositionByListId(10L)).thenReturn(null);
         when(cardRepo.save(any(Card.class))).thenReturn(testCard);
         when(activityRepo.save(any(CardActivity.class))).thenReturn(new CardActivity());
 
-        CardResponse result = cardService.createCard(request, 1L);
+        CardResponse result = cardService.createCard(request, 1L, authToken);
 
         assertNotNull(result);
         assertEquals("Test Card", result.getTitle());
@@ -90,9 +91,9 @@ class CardServiceTest {
         request.setListId(10L);
         request.setTitle("New Card");
 
-        when(listClient.getListById(10L, 1L)).thenThrow(new RuntimeException("Not found"));
+        when(listClient.getListById(10L, 1L, authToken)).thenThrow(new RuntimeException("Not found"));
 
-        assertThrows(RuntimeException.class, () -> cardService.createCard(request, 1L));
+        assertThrows(RuntimeException.class, () -> cardService.createCard(request, 1L, authToken));
         verify(cardRepo, never()).save(any());
     }
 
@@ -104,7 +105,7 @@ class CardServiceTest {
         request.setBoardId(5L);
         request.setTitle("First Card");
 
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
         when(cardRepo.findMaxPositionByListId(10L)).thenReturn(null);
         when(cardRepo.save(any(Card.class))).thenAnswer(inv -> {
             Card c = inv.getArgument(0);
@@ -113,7 +114,7 @@ class CardServiceTest {
         });
         when(activityRepo.save(any(CardActivity.class))).thenReturn(new CardActivity());
 
-        cardService.createCard(request, 1L);
+        cardService.createCard(request, 1L, authToken);
     }
 
     // ========== GET CARDS BY LIST ==========
@@ -121,11 +122,11 @@ class CardServiceTest {
     @Test
     @DisplayName("GetCardsByList - returns active cards")
     void getCardsByList_WhenAccessible_ShouldReturnCards() {
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
         when(cardRepo.findByListIdAndIsArchivedOrderByPositionAsc(10L, false))
                 .thenReturn(List.of(testCard));
 
-        List<CardResponse> results = cardService.getCardsByList(10L, 1L);
+        List<CardResponse> results = cardService.getCardsByList(10L, 1L, authToken);
 
         assertThat(results).hasSize(1);
         assertEquals("Test Card", results.get(0).getTitle());
@@ -134,9 +135,9 @@ class CardServiceTest {
     @Test
     @DisplayName("GetCardsByList - throws when list not accessible")
     void getCardsByList_WhenListNotAccessible_ShouldThrowException() {
-        when(listClient.getListById(10L, 1L)).thenThrow(new RuntimeException("Access denied"));
+        when(listClient.getListById(10L, 1L, authToken)).thenThrow(new RuntimeException("Access denied"));
 
-        assertThrows(RuntimeException.class, () -> cardService.getCardsByList(10L, 1L));
+        assertThrows(RuntimeException.class, () -> cardService.getCardsByList(10L, 1L, authToken));
     }
 
     // ========== GET CARD BY ID ==========
@@ -145,9 +146,9 @@ class CardServiceTest {
     @DisplayName("GetCardById - returns card when found and accessible")
     void getCardById_WhenFoundAndAccessible_ShouldReturnCard() {
         when(cardRepo.findById(1L)).thenReturn(Optional.of(testCard));
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
 
-        CardResponse result = cardService.getCardById(1L, 1L);
+        CardResponse result = cardService.getCardById(1L, 1L, authToken);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
@@ -158,7 +159,7 @@ class CardServiceTest {
     void getCardById_WhenNotFound_ShouldThrowException() {
         when(cardRepo.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> cardService.getCardById(999L, 1L));
+        assertThrows(RuntimeException.class, () -> cardService.getCardById(999L, 1L, authToken));
     }
 
     // ========== UPDATE CARD ==========
@@ -171,11 +172,11 @@ class CardServiceTest {
         request.setPriority(Priority.HIGH);
 
         when(cardRepo.findById(1L)).thenReturn(Optional.of(testCard));
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
         when(cardRepo.save(any(Card.class))).thenReturn(testCard);
         when(activityRepo.save(any(CardActivity.class))).thenReturn(new CardActivity());
 
-        CardResponse result = cardService.updateCard(1L, request, 1L);
+        CardResponse result = cardService.updateCard(1L, request, 1L, authToken);
 
         assertNotNull(result);
         verify(cardRepo).save(any(Card.class));
@@ -187,11 +188,11 @@ class CardServiceTest {
     @DisplayName("UpdateCardStatus - changes status successfully")
     void updateCardStatus_ShouldChangeStatus() {
         when(cardRepo.findById(1L)).thenReturn(Optional.of(testCard));
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
         when(cardRepo.save(any(Card.class))).thenReturn(testCard);
         when(activityRepo.save(any(CardActivity.class))).thenReturn(new CardActivity());
 
-        assertDoesNotThrow(() -> cardService.updateCardStatus(1L, Status.IN_PROGRESS, 1L));
+        assertDoesNotThrow(() -> cardService.updateCardStatus(1L, Status.IN_PROGRESS, 1L, authToken));
 
         assertEquals(Status.IN_PROGRESS, testCard.getStatus());
     }
@@ -202,10 +203,10 @@ class CardServiceTest {
     @DisplayName("ArchiveCard - sets isArchived to true")
     void archiveCard_ShouldSetArchivedTrue() {
         when(cardRepo.findById(1L)).thenReturn(Optional.of(testCard));
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
         when(cardRepo.save(any(Card.class))).thenReturn(testCard);
 
-        assertDoesNotThrow(() -> cardService.archiveCard(1L, 1L));
+        assertDoesNotThrow(() -> cardService.archiveCard(1L, 1L, authToken));
         assertTrue(testCard.getIsArchived());
     }
 
@@ -215,10 +216,10 @@ class CardServiceTest {
     @DisplayName("DeleteCard - deletes card when accessible")
     void deleteCard_WhenAccessible_ShouldDelete() {
         when(cardRepo.findById(1L)).thenReturn(Optional.of(testCard));
-        when(listClient.getListById(10L, 1L)).thenReturn(null);
+        when(listClient.getListById(10L, 1L, authToken)).thenReturn(null);
         doNothing().when(cardRepo).delete(testCard);
 
-        assertDoesNotThrow(() -> cardService.deleteCard(1L, 1L));
+        assertDoesNotThrow(() -> cardService.deleteCard(1L, 1L, authToken));
         verify(cardRepo).delete(testCard);
     }
 
@@ -229,7 +230,7 @@ class CardServiceTest {
     void getCardsByBoard_ShouldReturnNonArchivedCards() {
         when(cardRepo.findByBoardIdAndIsArchivedFalse(5L)).thenReturn(List.of(testCard));
 
-        List<CardResponse> results = cardService.getCardsByBoard(5L, 1L);
+        List<CardResponse> results = cardService.getCardsByBoard(5L, 1L, authToken);
 
         assertThat(results).hasSize(1);
     }
@@ -242,7 +243,7 @@ class CardServiceTest {
         testCard.setAssigneeId(1L);
         when(cardRepo.findByAssigneeId(1L)).thenReturn(List.of(testCard));
 
-        List<CardResponse> results = cardService.getCardsByAssignee(1L, 1L);
+        List<CardResponse> results = cardService.getCardsByAssignee(1L, 1L, authToken);
 
         assertThat(results).hasSize(1);
     }

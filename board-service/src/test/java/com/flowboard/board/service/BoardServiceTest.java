@@ -72,12 +72,12 @@ class BoardServiceTest {
         request.setDescription("A new board");
         request.setVisibility("PRIVATE");
 
-        when(workspaceClient.checkMembership(10L, 1L)).thenReturn(true);
+        when(workspaceClient.checkMembership(anyLong(), anyLong(), anyString())).thenReturn(true);
         when(boardRepo.existsByNameAndWorkspaceId("New Board", 10L)).thenReturn(false);
         when(boardRepo.save(any(Board.class))).thenReturn(testBoard);
         when(memberRepo.findByBoardId(any())).thenReturn(List.of(adminMember));
 
-        BoardResponse result = boardService.createBoard(request, 1L);
+        BoardResponse result = boardService.createBoard(request, 1L, "test-token");
 
         assertNotNull(result);
         assertEquals("Test Board", result.getName());
@@ -91,9 +91,9 @@ class BoardServiceTest {
         request.setWorkspaceId(10L);
         request.setName("New Board");
 
-        when(workspaceClient.checkMembership(10L, 1L)).thenReturn(false);
+        when(workspaceClient.checkMembership(anyLong(), anyLong(), anyString())).thenReturn(false);
 
-        assertThrows(RuntimeException.class, () -> boardService.createBoard(request, 1L));
+        assertThrows(RuntimeException.class, () -> boardService.createBoard(request, 1L, "test-token"));
         verify(boardRepo, never()).save(any());
     }
 
@@ -104,10 +104,10 @@ class BoardServiceTest {
         request.setWorkspaceId(10L);
         request.setName("Test Board");
 
-        when(workspaceClient.checkMembership(10L, 1L)).thenReturn(true);
+        when(workspaceClient.checkMembership(anyLong(), anyLong(), anyString())).thenReturn(true);
         when(boardRepo.existsByNameAndWorkspaceId("Test Board", 10L)).thenReturn(true);
 
-        assertThrows(RuntimeException.class, () -> boardService.createBoard(request, 1L));
+        assertThrows(RuntimeException.class, () -> boardService.createBoard(request, 1L, "test-token"));
         verify(boardRepo, never()).save(any());
     }
 
@@ -120,7 +120,7 @@ class BoardServiceTest {
         when(memberRepo.existsByBoardIdAndUserId(1L, 1L)).thenReturn(true);
         when(memberRepo.findByBoardId(1L)).thenReturn(List.of(adminMember));
 
-        BoardResponse result = boardService.getBoardById(1L, 1L);
+        BoardResponse result = boardService.getBoardById(1L, 1L, "test-token");
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
@@ -131,7 +131,7 @@ class BoardServiceTest {
     void getBoardById_WithInvalidId_ShouldThrowException() {
         when(boardRepo.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(RuntimeException.class, () -> boardService.getBoardById(999L, 1L));
+        assertThrows(RuntimeException.class, () -> boardService.getBoardById(999L, 1L, "test-token"));
     }
 
     @Test
@@ -140,7 +140,7 @@ class BoardServiceTest {
         when(boardRepo.findById(1L)).thenReturn(Optional.of(testBoard));
         when(memberRepo.existsByBoardIdAndUserId(1L, 2L)).thenReturn(false);
 
-        assertThrows(RuntimeException.class, () -> boardService.getBoardById(1L, 2L));
+        assertThrows(RuntimeException.class, () -> boardService.getBoardById(1L, 2L, "test-token"));
     }
 
     // ========== GET BOARDS BY WORKSPACE ==========
@@ -148,12 +148,12 @@ class BoardServiceTest {
     @Test
     @DisplayName("GetBoardsByWorkspace - returns boards when user is workspace member")
     void getBoardsByWorkspace_WhenMember_ShouldReturnBoards() {
-        when(workspaceClient.checkMembership(10L, 1L)).thenReturn(true);
+        when(workspaceClient.checkMembership(anyLong(), anyLong(), anyString())).thenReturn(true);
         when(boardRepo.findByWorkspaceIdAndIsClosed(10L, false)).thenReturn(List.of(testBoard));
         when(memberRepo.existsByBoardIdAndUserId(1L, 1L)).thenReturn(true);
         when(memberRepo.findByBoardId(1L)).thenReturn(List.of(adminMember));
 
-        List<BoardResponse> results = boardService.getBoardsByWorkspace(10L, 1L);
+        List<BoardResponse> results = boardService.getBoardsByWorkspace(10L, 1L, "test-token");
 
         assertThat(results).hasSize(1);
     }
@@ -161,9 +161,9 @@ class BoardServiceTest {
     @Test
     @DisplayName("GetBoardsByWorkspace - throws when user not workspace member")
     void getBoardsByWorkspace_WhenNotMember_ShouldThrowException() {
-        when(workspaceClient.checkMembership(10L, 1L)).thenReturn(false);
+        when(workspaceClient.checkMembership(anyLong(), anyLong(), anyString())).thenReturn(false);
 
-        assertThrows(RuntimeException.class, () -> boardService.getBoardsByWorkspace(10L, 1L));
+        assertThrows(RuntimeException.class, () -> boardService.getBoardsByWorkspace(10L, 1L, "test-token"));
     }
 
     // ========== GET MY BOARDS ==========
@@ -220,7 +220,7 @@ class BoardServiceTest {
         when(memberRepo.findRoleByBoardIdAndUserId(1L, 1L)).thenReturn("ADMIN");
         when(boardRepo.save(any(Board.class))).thenReturn(testBoard);
 
-        assertDoesNotThrow(() -> boardService.closeBoard(1L, 1L));
+        assertDoesNotThrow(() -> boardService.closeBoard(1L, 1L, "test-token"));
         assertTrue(testBoard.getIsClosed());
     }
 
@@ -229,10 +229,10 @@ class BoardServiceTest {
     void closeBoard_WhenWorkspaceAdmin_ShouldCloseBoard() {
         when(boardRepo.findById(1L)).thenReturn(Optional.of(testBoard));
         when(memberRepo.findRoleByBoardIdAndUserId(1L, 2L)).thenReturn("MEMBER");
-        when(workspaceClient.isWorkspaceAdmin(10L, 2L)).thenReturn(true);
+        when(workspaceClient.isWorkspaceAdmin(eq(10L), eq(2L), anyString())).thenReturn(true);
         when(boardRepo.save(any(Board.class))).thenReturn(testBoard);
 
-        assertDoesNotThrow(() -> boardService.closeBoard(1L, 2L));
+        assertDoesNotThrow(() -> boardService.closeBoard(1L, 2L, "test-token"));
     }
 
     // ========== ADD MEMBER ==========
@@ -246,11 +246,11 @@ class BoardServiceTest {
 
         when(boardRepo.findById(1L)).thenReturn(Optional.of(testBoard));
         when(memberRepo.findRoleByBoardIdAndUserId(1L, 1L)).thenReturn("ADMIN");
-        when(workspaceClient.checkMembership(10L, 2L)).thenReturn(true);
+        when(workspaceClient.checkMembership(eq(10L), eq(2L), anyString())).thenReturn(true);
         when(memberRepo.existsByBoardIdAndUserId(1L, 2L)).thenReturn(false);
         when(memberRepo.save(any(BoardMember.class))).thenReturn(adminMember);
 
-        assertDoesNotThrow(() -> boardService.addMember(1L, request, 1L));
+        assertDoesNotThrow(() -> boardService.addMember(1L, request, 1L, "test-token"));
         verify(memberRepo).save(any(BoardMember.class));
     }
 
@@ -262,10 +262,10 @@ class BoardServiceTest {
 
         when(boardRepo.findById(1L)).thenReturn(Optional.of(testBoard));
         when(memberRepo.findRoleByBoardIdAndUserId(1L, 1L)).thenReturn("ADMIN");
-        when(workspaceClient.checkMembership(10L, 1L)).thenReturn(true);
+        when(workspaceClient.checkMembership(anyLong(), anyLong(), anyString())).thenReturn(true);
         when(memberRepo.existsByBoardIdAndUserId(1L, 1L)).thenReturn(true);
 
-        assertThrows(RuntimeException.class, () -> boardService.addMember(1L, request, 1L));
+        assertThrows(RuntimeException.class, () -> boardService.addMember(1L, request, 1L, "test-token"));
     }
 
     // ========== REMOVE MEMBER ==========
@@ -282,7 +282,7 @@ class BoardServiceTest {
         when(memberRepo.findRoleByBoardIdAndUserId(1L, 2L)).thenReturn("MEMBER");
         doNothing().when(memberRepo).deleteByBoardIdAndUserId(1L, 2L);
 
-        assertDoesNotThrow(() -> boardService.removeMember(1L, 2L, 1L));
+        assertDoesNotThrow(() -> boardService.removeMember(1L, 2L, 1L, "test-token"));
         verify(memberRepo).deleteByBoardIdAndUserId(1L, 2L);
     }
 
@@ -292,7 +292,7 @@ class BoardServiceTest {
         when(memberRepo.findByBoardId(1L)).thenReturn(List.of(adminMember));
         when(memberRepo.findRoleByBoardIdAndUserId(1L, 1L)).thenReturn("ADMIN");
 
-        assertThrows(RuntimeException.class, () -> boardService.removeMember(1L, 1L, 1L));
+        assertThrows(RuntimeException.class, () -> boardService.removeMember(1L, 1L, 1L, "test-token"));
     }
 
     // ========== GET TOTAL COUNT ==========

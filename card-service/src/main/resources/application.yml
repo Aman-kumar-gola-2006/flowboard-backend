@@ -6,7 +6,7 @@ spring:
     name: card-service
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_card?createDatabaseIfNotExist=true
-    username: admin
+    username: root
     password: 05092006
   jpa:
     hibernate:
@@ -15,6 +15,15 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    notification:
+      queue: notification_queue
+      exchange: notification_exchange
+      routing-key: notification_routing_key
 
   # Redis config - used for card position caching
   # Keeps drag-drop operations snappy (< 200ms target)
