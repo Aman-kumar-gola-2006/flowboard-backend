@@ -5,6 +5,7 @@ import com.flowboard.auth.security.JwtAuthenticationFilter;
 import com.flowboard.auth.security.OAuth2SuccessHandler;
 import com.flowboard.auth.security.UserDetailsServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,6 +42,9 @@ public class SecurityConfig {
 
     @Autowired
     private ClientRegistrationRepository clientRegistrationRepository;
+
+    @Value("${app.frontend.url:https://flowboard-taskmanager.netlify.app}")
+    private String frontendUrl;
     
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
@@ -79,7 +83,7 @@ public class SecurityConfig {
                     .authorizationRequestResolver(authorizationRequestResolver(clientRegistrationRepository))
                 )
                 .successHandler(oAuth2SuccessHandler)
-                .failureUrl("http://3.110.61.209.nip.io:4200/login?error=oauth2")
+                .failureUrl(frontendUrl + "/login?error=oauth2")
             );
         
         http.authenticationProvider(authenticationProvider());
