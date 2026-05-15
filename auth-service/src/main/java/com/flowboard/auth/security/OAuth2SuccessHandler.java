@@ -25,6 +25,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private com.flowboard.auth.repository.UserRepository userRepository;
 
     @Autowired
+    @org.springframework.context.annotation.Lazy
     private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Autowired
