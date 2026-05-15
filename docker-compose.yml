@@ -45,6 +45,8 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_auth?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT-URI=https://3.110.61.209.nip.io/login/oauth2/code/google
+      - SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GITHUB_REDIRECT-URI=https://3.110.61.209.nip.io/login/oauth2/code/github
     depends_on:
       - eureka-server
       - mysql
