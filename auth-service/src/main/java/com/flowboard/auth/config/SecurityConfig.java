@@ -42,6 +42,7 @@ public class SecurityConfig {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Autowired
+    @org.springframework.context.annotation.Lazy
     private OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Autowired
