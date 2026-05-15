@@ -68,7 +68,7 @@ public class EmailService {
 
     public void sendWelcomeEmail(String to, String name) {
         String content = "Welcome to FlowBoard! We're thrilled to have you join our community. FlowBoard is designed to help you organize your work and collaborate with your team faster than ever before.<br><br>Ready to dive in? Start by creating your first workspace and explore your new dashboard.";
-        String html = getHtmlTemplate("Welcome to FlowBoard 🚀", name, content, "Log In to Workspace", "http://localhost:4200/login");
+        String html = getHtmlTemplate("Welcome to FlowBoard 🚀", name, content, "Log In to Workspace", "http://3.110.61.209:4200/login");
         sendHtmlEmail(to, "Welcome to FlowBoard 🚀 - Let's Start Building!", html);
     }
 
@@ -78,7 +78,7 @@ public class EmailService {
                          "&bull; Priority Support & Faster SLAs<br>" +
                          "&bull; Advanced Analytics & Custom Labels<br>" +
                          "&bull; Enhanced Storage & Privacy Settings";
-        String html = getHtmlTemplate("You're a PRO Member! 💎", name, content, "Go to Dashboard", "http://localhost:4200/dashboard");
+        String html = getHtmlTemplate("You're a PRO Member! 💎", name, content, "Go to Dashboard", "http://3.110.61.209:4200/dashboard");
         sendHtmlEmail(to, "Congratulations! 💎 You're now a FlowBoard PRO Member", html);
     }
 
@@ -88,7 +88,7 @@ public class EmailService {
                          "<strong>User:</strong> " + fromName + " (" + fromEmail + ")<br>" +
                          "<strong>Subject:</strong> " + subject + "<br><br>" +
                          "<strong>Message:</strong><br>" + problem;
-        String html = getHtmlTemplate("Support Request Received", "Admin", content, "Respond in Admin Panel", "http://localhost:4200/admin");
+        String html = getHtmlTemplate("Support Request Received", "Admin", content, "Respond in Admin Panel", "http://3.110.61.209:4200/admin");
         sendHtmlEmail("amanagola9841@gmail.com", "FlowBoard Support: " + subject, html);
     }
 }

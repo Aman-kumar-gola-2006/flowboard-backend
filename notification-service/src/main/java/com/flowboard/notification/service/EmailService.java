@@ -88,7 +88,7 @@ public class EmailService {
     }
 
     public void sendInvitationEmail(String email, String inviterName, String workspaceName, String inviteToken) {
-        String inviteLink = "http://localhost:4200/invite?token=" + inviteToken;
+        String inviteLink = "http://3.110.61.209:4200/invite?token=" + inviteToken;
         String subject = inviterName + " invited you to join " + workspaceName + " on FlowBoard";
         String body = "<h1>Workspace Invitation</h1>" +
                       "<p>Hi,</p>" +

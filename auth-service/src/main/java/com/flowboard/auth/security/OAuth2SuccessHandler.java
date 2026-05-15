@@ -43,7 +43,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         
         if (rawEmail == null) {
             // If still null, we can't proceed. Redirect with error.
-            response.sendRedirect("http://localhost:4200/login?error=oauth2");
+            response.sendRedirect("http://3.110.61.209:4200/login?error=oauth2");
             return;
         }
         
@@ -109,7 +109,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         
         // 1.5 Check if user is suspended
         if (!user.getIsActive()) {
-            response.sendRedirect("http://localhost:4200/login?error=suspended");
+            response.sendRedirect("http://3.110.61.209:4200/login?error=suspended");
             return;
         }
         
@@ -117,6 +117,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String token = jwtUtil.generateToken(email, user.getId(), user.getRole(), user.getUsername());
         
         // 3. Redirect to frontend with token, name, and ID
-        response.sendRedirect("http://localhost:4200/oauth2/callback?token=" + token + "&name=" + finalName + "&id=" + user.getId());
+        response.sendRedirect("http://3.110.61.209:4200/oauth2/callback?token=" + token + "&name=" + finalName + "&id=" + user.getId());
     }
 }

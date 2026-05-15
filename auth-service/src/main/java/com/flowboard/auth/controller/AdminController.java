@@ -34,7 +34,7 @@ public class AdminController {
     public ResponseEntity<?> getOverdueCards() {
         try {
             Object overdueCards = restTemplate.getForObject(
-                "http://localhost:8085/api/cards/overdue/all", Object.class);
+                "http://3.110.61.209:8085/api/cards/overdue/all", Object.class);
             return ResponseEntity.ok(overdueCards);
         } catch (Exception e) {
             return ResponseEntity.ok(java.util.Map.of("message", "Card service unavailable", "count", 0));

@@ -253,8 +253,8 @@ public class WorkspaceService {
             msg.setSubject("FlowBoard - Invitation to join " + workspaceName);
             
             String link = isNewUser 
-                ? "http://localhost:4200/register?inviteToken=" + token 
-                : "http://localhost:4200/login";
+                ? "http://3.110.61.209:4200/register?inviteToken=" + token 
+                : "http://3.110.61.209:4200/login";
             
             String message = "You've been invited to join the workspace \"" + workspaceName + "\" on FlowBoard.\n\n";
             if (isNewUser) {

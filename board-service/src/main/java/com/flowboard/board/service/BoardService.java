@@ -328,7 +328,7 @@ public class BoardService {
             msg.setWorkspaceName(workspace.get("name").toString());
             msg.setRecipientId(userId);
             msg.setActorId(inviterId);
-            msg.setExtraData("http://localhost:4200/board/" + board.getId());
+            msg.setExtraData("http://3.110.61.209:4200/board/" + board.getId());
 
             messageProducer.sendNotification(msg);
             log.info("Board invitation notification sent to {}", msg.getEmail());

@@ -248,21 +248,21 @@ public class AuthService {
         stats.put("totalUsers", userRepository.count());
         
         try {
-            Long workspaces = restTemplate.getForObject("http://localhost:8082/api/workspaces/count", Long.class);
+            Long workspaces = restTemplate.getForObject("http://3.110.61.209:8082/api/workspaces/count", Long.class);
             stats.put("totalWorkspaces", workspaces != null ? workspaces : 0L);
         } catch (Exception e) {
             stats.put("totalWorkspaces", 0L);
         }
 
         try {
-            Long boards = restTemplate.getForObject("http://localhost:8083/api/boards/count", Long.class);
+            Long boards = restTemplate.getForObject("http://3.110.61.209:8083/api/boards/count", Long.class);
             stats.put("totalBoards", boards != null ? boards : 0L);
         } catch (Exception e) {
             stats.put("totalBoards", 0L);
         }
 
         try {
-            Long cards = restTemplate.getForObject("http://localhost:8085/api/cards/count", Long.class);
+            Long cards = restTemplate.getForObject("http://3.110.61.209:8085/api/cards/count", Long.class);
             stats.put("totalCards", cards != null ? cards : 0L);
         } catch (Exception e) {
             stats.put("totalCards", 0L);

@@ -18,4 +18,8 @@ public class NotificationMessage implements Serializable {
     private String boardName;
     private String taskTitle;
     private String inviterName;
+    private Long recipientId;
+    private Long actorId;
+    private Long relatedId;
+    private String relatedType;
 }

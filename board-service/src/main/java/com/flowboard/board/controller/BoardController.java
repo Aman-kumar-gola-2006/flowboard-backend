@@ -287,7 +287,7 @@ public class BoardController {
         try {
             // Card counts per list
             org.springframework.http.ResponseEntity<Object> listsResponse = restTemplate.exchange(
-                "http://localhost:8084/api/lists/board/" + boardId, 
+                "http://3.110.61.209:8084/api/lists/board/" + boardId, 
                 org.springframework.http.HttpMethod.GET, 
                 entity, 
                 Object.class);
@@ -299,7 +299,7 @@ public class BoardController {
         try {
             // Overdue cards
             org.springframework.http.ResponseEntity<Object> overdueResponse = restTemplate.exchange(
-                "http://localhost:8085/api/cards/board/" + boardId + "/overdue", 
+                "http://3.110.61.209:8085/api/cards/board/" + boardId + "/overdue", 
                 org.springframework.http.HttpMethod.GET, 
                 entity, 
                 Object.class);
@@ -311,7 +311,7 @@ public class BoardController {
         try {
             // Total cards
             org.springframework.http.ResponseEntity<Object> cardsResponse = restTemplate.exchange(
-                "http://localhost:8085/api/cards/board/" + boardId, 
+                "http://3.110.61.209:8085/api/cards/board/" + boardId, 
                 org.springframework.http.HttpMethod.GET, 
                 entity, 
                 Object.class);
