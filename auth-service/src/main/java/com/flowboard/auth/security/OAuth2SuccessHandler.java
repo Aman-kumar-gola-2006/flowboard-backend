@@ -3,6 +3,7 @@ package com.flowboard.auth.security;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -28,6 +29,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
     @Autowired
     private MessageProducer messageProducer;
+
+    @Value("${app.frontend.url:https://flowboard-taskmanager.netlify.app}")
+    private String frontendUrl;
     
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, 
@@ -43,7 +47,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         
         if (rawEmail == null) {
             // If still null, we can't proceed. Redirect with error.
-            response.sendRedirect("https://flowboard-taskmanager.netlify.app/login?error=oauth2");
+            response.sendRedirect(frontendUrl + "/login?error=oauth2");
             return;
         }
         
@@ -109,7 +113,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         
         // 1.5 Check if user is suspended
         if (!user.getIsActive()) {
-            response.sendRedirect("https://flowboard-taskmanager.netlify.app/login?error=suspended");
+            response.sendRedirect(frontendUrl + "/login?error=suspended");
             return;
         }
         
@@ -117,6 +121,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String token = jwtUtil.generateToken(email, user.getId(), user.getRole(), user.getUsername());
         
         // 3. Redirect to frontend with token, name, and ID
-        response.sendRedirect("https://flowboard-taskmanager.netlify.app/oauth2/callback?token=" + token + "&name=" + finalName + "&id=" + user.getId());
+        response.sendRedirect(frontendUrl + "/oauth2/callback?token=" + token + "&name=" + finalName + "&id=" + user.getId());
     }
 }
