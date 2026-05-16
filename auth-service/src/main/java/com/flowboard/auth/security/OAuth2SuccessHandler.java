@@ -34,7 +34,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Autowired
     private MessageProducer messageProducer;
 
-    @Value("${app.frontend.url:https://flowboard-taskmanager.netlify.app}")
+    @Value("${app.frontend.url:http://localhost:4200}")
     private String frontendUrl;
     
     @Override
@@ -117,7 +117,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         
         // 1.5 Check if user is suspended
         if (!user.getIsActive()) {
-            response.sendRedirect(frontendUrl + "/login?error=suspended");
+            response.sendRedirect(frontendUrl + "/login?error=blocked");
             return;
         }
         

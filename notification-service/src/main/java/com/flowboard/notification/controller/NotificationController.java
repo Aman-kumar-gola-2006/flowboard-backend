@@ -79,14 +79,6 @@ public class NotificationController {
     @PostMapping("/send")
     public ResponseEntity<NotificationResponse> sendNotification(@RequestBody NotificationRequest request) {
         NotificationResponse response = notificationService.sendNotification(request);
-        
-        // Send real-time via STOMP to specific user
-        messagingTemplate.convertAndSendToUser(
-            request.getRecipientId().toString(), 
-            "/queue/notifications", 
-            response
-        );
-        
         return ResponseEntity.ok(response);
     }
 

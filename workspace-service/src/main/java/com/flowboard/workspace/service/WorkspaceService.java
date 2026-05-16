@@ -197,7 +197,14 @@ public class WorkspaceService {
                 msg.setName(user.getFullName());
                 msg.setType("INVITE");
                 msg.setWorkspaceName(workspace.getName());
-                msg.setInviterName("Someone");
+                String inviterName = "Someone";
+                try {
+                    UserResponse inviter = authServiceClient.getUserById(actorId != null ? actorId : workspace.getOwnerId(), authToken);
+                    inviterName = (inviter.getFullName() != null && !inviter.getFullName().isEmpty()) ? inviter.getFullName() : inviter.getUsername();
+                } catch (Exception e) {
+                    log.warn("Failed to fetch inviter name, using fallback");
+                }
+                msg.setInviterName(inviterName);
                 msg.setRecipientId(user.getId());
                 msg.setActorId(actorId != null ? actorId : workspace.getOwnerId());
                 msg.setExtraData("/login");
@@ -253,8 +260,8 @@ public class WorkspaceService {
             msg.setSubject("FlowBoard - Invitation to join " + workspaceName);
             
             String link = isNewUser 
-                ? "http://3.110.61.209.nip.io:4200/register?inviteToken=" + token 
-                : "http://3.110.61.209.nip.io:4200/login";
+                ? "http://localhost:4200/register?inviteToken=" + token 
+                : "http://localhost:4200/login";
             
             String message = "You've been invited to join the workspace \"" + workspaceName + "\" on FlowBoard.\n\n";
             if (isNewUser) {

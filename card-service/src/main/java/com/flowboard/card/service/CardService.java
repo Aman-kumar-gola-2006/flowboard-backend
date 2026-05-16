@@ -425,7 +425,6 @@ public class CardService {
             String assigneeName = (assigneeUser.getFullName() != null && !assigneeUser.getFullName().isEmpty()) 
                                 ? assigneeUser.getFullName() : assigneeUser.getUsername();
             
-            // Fetch assigner name (createdBy or current user)
             String assignerName = "Someone";
             try {
                 UserResponse assignerUser = authClient.getUserById(card.getCreatedBy(), authToken);
@@ -436,50 +435,9 @@ public class CardService {
             }
 
             Map<String, Object> board = boardClient.getBoardById(card.getBoardId(), card.getCreatedBy(), authToken);
+            String boardName = board.get("name").toString();
             
             String workspaceName = "Unknown Workspace";
-            if (board.get("workspaceId") != null) {
-                try {
-                    Long workspaceId = Long.valueOf(board.get("workspaceId").toString());
-                    Map<String, Object> workspace = workspaceClient.getWorkspaceById(workspaceId, authToken);
-                    workspaceName = workspace.get("name").toString();
-                } catch (Exception e) {
-                    log.warn("Could not fetch workspace name: {}", e.getMessage());
-                }
-            }
-
-            NotificationMessage msg = new NotificationMessage();
-            msg.setEmail(assigneeUser.getEmail());
-            msg.setName(assigneeName);
-            msg.setType("ASSIGN");
-            msg.setTaskTitle(card.getTitle());
-            msg.setBoardName(board.get("name").toString());
-            msg.setWorkspaceName(workspaceName);
-            msg.setInviterName(assignerName); // Use this field for "Assigned by"
-            msg.setRecipientId(card.getAssigneeId());
-            msg.setActorId(card.getCreatedBy());
-            msg.setRelatedId(card.getBoardId());
-            msg.setRelatedType("BOARD");
-            msg.setExtraData("/board/" + card.getBoardId());
-
-            messageProducer.sendNotification(msg);
-            log.info("Assignment notification sent to {}", assigneeUser.getEmail());
-        } catch (Exception e) {
-            log.error("Failed to send assignment notification: {}", e.getMessage());
-        }
-    }
-
-    @Async
-    protected void sendDueDateNotification(Card card, String authToken) {
-        if (card.getAssigneeId() == null) return;
-
-        try {
-            UserResponse assigneeUser = authClient.getUserById(card.getAssigneeId(), authToken);
-            String assigneeName = (assigneeUser.getFullName() != null && !assigneeUser.getFullName().isEmpty()) 
-                                ? assigneeUser.getFullName() : assigneeUser.getUsername();
-            
-            Map<String, Object> board = boardClient.getBoardById(card.getBoardId(), card.getCreatedBy(), authToken);
-            String workspaceName = "Your Workspace";
             if (board.get("workspaceId") != null) {
                 try {
                     Long workspaceId = Long.valueOf(board.get("workspaceId").toString());
@@ -491,9 +449,11 @@ public class CardService {
             NotificationMessage msg = new NotificationMessage();
             msg.setEmail(assigneeUser.getEmail());
             msg.setName(assigneeName);
-            msg.setType("DUE_DATE");
-            msg.setBoardName(board.get("name").toString());
+            msg.setType("ASSIGN");
+            msg.setTaskTitle(card.getTitle());
+            msg.setBoardName(boardName);
             msg.setWorkspaceName(workspaceName);
+            msg.setInviterName(assignerName);
             msg.setRecipientId(card.getAssigneeId());
             msg.setActorId(card.getCreatedBy());
             msg.setRelatedId(card.getBoardId());
@@ -501,7 +461,34 @@ public class CardService {
             msg.setExtraData("/board/" + card.getBoardId());
 
             messageProducer.sendNotification(msg);
-            log.info("Due date notification sent to {}", msg.getEmail());
+            log.info("Assignment notification sent for card: {}", card.getTitle());
+        } catch (Exception e) {
+            log.error("Failed to send assignment notification: {}", e.getMessage());
+        }
+    }
+
+    @Async
+    protected void sendDueDateNotification(Card card, String authToken) {
+        if (card.getAssigneeId() == null) return;
+
+        try {
+            UserResponse assigneeUser = authClient.getUserById(card.getAssigneeId(), authToken);
+            Map<String, Object> board = boardClient.getBoardById(card.getBoardId(), card.getCreatedBy(), authToken);
+            
+            NotificationMessage msg = new NotificationMessage();
+            msg.setEmail(assigneeUser.getEmail());
+            msg.setName(assigneeUser.getFullName() != null ? assigneeUser.getFullName() : assigneeUser.getUsername());
+            msg.setType("DUE_DATE");
+            msg.setTaskTitle(card.getTitle()); // Send card title
+            msg.setBoardName(board.get("name").toString());
+            msg.setRecipientId(card.getAssigneeId());
+            msg.setActorId(card.getCreatedBy());
+            msg.setRelatedId(card.getBoardId());
+            msg.setRelatedType("BOARD");
+            msg.setExtraData(card.getDueDate() != null ? card.getDueDate().toString() : "");
+
+            messageProducer.sendNotification(msg);
+            log.info("Due date update notification sent for card: {}", card.getTitle());
         } catch (Exception e) {
             log.error("Failed to send due date notification: {}", e.getMessage());
         }

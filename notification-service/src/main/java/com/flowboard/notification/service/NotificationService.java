@@ -68,7 +68,7 @@ public class NotificationService {
         try {
             // Get all cards with due dates
             Object cardsResponse = restTemplate.getForObject(
-                "http://3.110.61.209.nip.io:8085/api/cards/overdue/all", Object.class);
+                "http://localhost:8085/api/cards/overdue/all", Object.class);
             
             List<Map<String, Object>> cards = (List<Map<String, Object>>) cardsResponse;
             LocalDateTime now = LocalDateTime.now();
@@ -112,7 +112,7 @@ public class NotificationService {
     private void sendDueDateEmail(Long userId, Map<String, Object> card) {
         try {
             Object userResponse = restTemplate.getForObject(
-                "http://3.110.61.209.nip.io:8081/api/auth/users/" + userId, Object.class);
+                "http://localhost:8081/api/auth/users/" + userId, Object.class);
             Map<String, Object> user = (Map<String, Object>) userResponse;
             String email = (String) user.get("email");
             String taskTitle = (String) card.get("title");
@@ -186,12 +186,11 @@ public class NotificationService {
     public void sendWebSocketNotification(Notification notification) {
         try {
             NotificationResponse response = mapToResponse(notification);
-            log.info("Sending STOMP notification to user {}: /user/{}/queue/notifications", 
+            log.info("Sending STOMP notification to user {}: /topic/notifications/{}", 
                      notification.getRecipientId(), notification.getRecipientId());
             
-            messagingTemplate.convertAndSendToUser(
-                notification.getRecipientId().toString(),
-                "/queue/notifications",
+            messagingTemplate.convertAndSend(
+                "/topic/notifications/" + notification.getRecipientId(),
                 response
             );
         } catch (Exception e) {

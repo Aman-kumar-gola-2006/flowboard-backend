@@ -43,18 +43,18 @@ public class MessageConsumer {
                     break;
                 case "SUSPEND":
                     emailService.sendSuspensionEmail(message.getEmail(), message.getName());
-                    saveNotification(message, "Account Suspended", "Your account has been suspended.");
+                    saveNotification(message, "Account Blocked", "Your account has been blocked by the administrator.");
                     break;
                 case "REACTIVATE":
+                    log.info("Processing REACTIVATE for user: {}", message.getEmail());
                     emailService.sendReactivationEmail(message.getEmail(), message.getName());
-                    saveNotification(message, "Account Reactivated", "Your account has been reactivated.");
+                    saveNotification(message, "Account Unblocked", "Your account has been unblocked. You can now log in again.");
                     break;
                 case "CONTACT":
                     emailService.sendSupportEmail(message.getName(), message.getEmail(), "Support Request", message.getExtraData());
                     break;
                 case "DUE_DATE":
-                    // Due dates are important, save notification and maybe email?
-                    saveNotification(message, "Due Date Reminder", "Task '" + message.getBoardName() + "' has a due date set: " + message.getExtraData());
+                    saveNotification(message, "Due Date Reminder", "Task '" + message.getTaskTitle() + "' has a due date set: " + message.getExtraData());
                     break;
                 default:
                     log.warn("Unknown message type received: {}", message.getType());

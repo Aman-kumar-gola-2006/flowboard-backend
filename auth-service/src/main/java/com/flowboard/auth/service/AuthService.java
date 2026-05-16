@@ -62,7 +62,7 @@ public class AuthService {
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
         if (!userDetails.getIsActive()) {
-            throw new RuntimeException("Your account has been suspended by an admin. Please contact support.");
+            throw new RuntimeException("Your account has been blocked by an admin. Please contact support.");
         }
 
         auditLogService.log(userDetails.getId(), userDetails.getFullName(), "LOGIN", "USER", userDetails.getId(), "User logged in successfully");
@@ -184,10 +184,11 @@ public class AuthService {
         try {
             NotificationMessage msg = new NotificationMessage();
             msg.setEmail(user.getEmail());
-            msg.setName(user.getFullName());
+            msg.setName(user.getFullName() != null ? user.getFullName() : user.getUsername());
             msg.setType("SUSPEND");
             msg.setRecipientId(user.getId());
             messageProducer.sendNotification(msg);
+            System.out.println("Suspension notification queued for: " + user.getEmail());
         } catch (Exception e) {
             System.err.println("Failed to queue suspension notification: " + e.getMessage());
         }
@@ -204,10 +205,11 @@ public class AuthService {
         try {
             NotificationMessage msg = new NotificationMessage();
             msg.setEmail(user.getEmail());
-            msg.setName(user.getFullName());
+            msg.setName(user.getFullName() != null ? user.getFullName() : user.getUsername());
             msg.setType("REACTIVATE");
             msg.setRecipientId(user.getId());
             messageProducer.sendNotification(msg);
+            System.out.println("Reactivation notification queued for: " + user.getEmail());
         } catch (Exception e) {
             System.err.println("Failed to queue reactivation notification: " + e.getMessage());
         }
@@ -245,12 +247,15 @@ public class AuthService {
 
     public Map<String, Long> getAdminStats() {
         Map<String, Long> stats = new HashMap<>();
-        stats.put("totalUsers", userRepository.count());
+        long userCount = userRepository.count();
+        stats.put("totalUsers", userCount);
+        System.out.println("Admin stats: totalUsers = " + userCount);
         
         try {
             Long workspaces = restTemplate.getForObject("http://workspace-service/api/workspaces/count", Long.class);
             stats.put("totalWorkspaces", workspaces != null ? workspaces : 0L);
         } catch (Exception e) {
+            System.err.println("Failed to fetch workspace count: " + e.getMessage());
             stats.put("totalWorkspaces", 0L);
         }
 
@@ -258,6 +263,7 @@ public class AuthService {
             Long boards = restTemplate.getForObject("http://board-service/api/boards/count", Long.class);
             stats.put("totalBoards", boards != null ? boards : 0L);
         } catch (Exception e) {
+            System.err.println("Failed to fetch board count: " + e.getMessage());
             stats.put("totalBoards", 0L);
         }
 
@@ -265,6 +271,7 @@ public class AuthService {
             Long cards = restTemplate.getForObject("http://card-service/api/cards/count", Long.class);
             stats.put("totalCards", cards != null ? cards : 0L);
         } catch (Exception e) {
+            System.err.println("Failed to fetch card count: " + e.getMessage());
             stats.put("totalCards", 0L);
         }
         

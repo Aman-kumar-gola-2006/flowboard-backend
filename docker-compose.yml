@@ -30,7 +30,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=gateway-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_gateway?createDatabaseIfNotExist=true
     depends_on:
       - eureka-server
@@ -43,12 +43,12 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=auth-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_auth?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_DATA_REDIS_HOST=redis
-      - APP_FRONTEND_URL=https://flowboard-taskmanager.netlify.app
-      - JAVA_TOOL_OPTIONS=-Dapp.frontend.url=https://flowboard-taskmanager.netlify.app
+      - APP_FRONTEND_URL=http://localhost:4200
+      - JAVA_TOOL_OPTIONS=-Dapp.frontend.url=http://localhost:4200
     depends_on:
       - eureka-server
       - mysql
@@ -62,7 +62,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=workspace-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_workspace?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
     depends_on:
@@ -78,7 +78,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=board-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_board?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
     depends_on:
@@ -94,7 +94,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=list-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_list?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
     depends_on:
@@ -110,7 +110,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=card-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_card?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
     depends_on:
@@ -126,7 +126,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=comment-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_comment?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
     depends_on:
@@ -142,7 +142,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=notification-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_notification?createDatabaseIfNotExist=true
       - SPRING_RABBITMQ_HOST=rabbitmq
     depends_on:
@@ -158,7 +158,7 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - EUREKA_INSTANCE_HOSTNAME=payment-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=true
+      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_payment?createDatabaseIfNotExist=true
     depends_on:
       - eureka-server
