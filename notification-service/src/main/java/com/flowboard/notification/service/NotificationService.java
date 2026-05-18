@@ -51,6 +51,38 @@ public class NotificationService {
         // Send WebSocket notification
         sendWebSocketNotification(saved);
         
+        // Send email if user has email notifications enabled
+        if ("CHAT_MESSAGE".equals(saved.getType())) {
+            try {
+                // Fetch the user to get email and settings
+                Map<String, Object> userProfile = authClient.getUserById(saved.getRecipientId());
+                if (userProfile != null && userProfile.containsKey("email")) {
+                    String email = (String) userProfile.get("email");
+                    String username = (String) userProfile.get("username");
+                    
+                    boolean emailEnabled = true;
+                    if (userProfile.containsKey("emailNotifications")) {
+                        emailEnabled = Boolean.TRUE.equals(userProfile.get("emailNotifications"));
+                    }
+                    
+                    if (emailEnabled) {
+                        String emailBody = "Hi " + (username != null ? username : "User") + ",<br><br>" +
+                                           "You have received a new message in board chat:<br><br>" +
+                                           "<div style=\"background-color: #f1f5f9; border-radius: 16px; padding: 24px; margin: 24px 0;\">" +
+                                           "  <strong>" + saved.getMessage() + "</strong>" +
+                                           "</div>" +
+                                           "Log in to FlowBoard to open the board and join the conversation.";
+                        
+                        emailService.sendEmail(email, "New Message in Board Chat: " + saved.getTitle(), emailBody, true);
+                        saved.setIsEmailSent(true);
+                        notificationRepository.save(saved);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Failed to send chat message email to recipient {}: {}", saved.getRecipientId(), e.getMessage());
+            }
+        }
+        
         log.info("Notification created: {} for user {}", saved.getId(), saved.getRecipientId());
         return saved;
     }

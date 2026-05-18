@@ -5,21 +5,29 @@ import com.flowboard.board.dto.BoardResponse;
 import com.flowboard.board.dto.MemberRequest;
 import com.flowboard.board.dto.MessageResponse;
 import com.flowboard.board.model.BoardMember;
+import com.flowboard.board.model.ChatMessage;
+import com.flowboard.board.repository.ChatMessageRepository;
 import com.flowboard.board.service.BoardService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.flowboard.board.client.AuthClient;
 import com.flowboard.board.client.WorkspaceClient;
+import com.flowboard.board.client.NotificationClient;
 import com.flowboard.board.model.Board;
 import com.flowboard.board.repository.BoardRepository;
 import org.springframework.web.client.RestTemplate;
@@ -29,6 +37,8 @@ import com.flowboard.board.repository.BoardMemberRepository;
 @RequestMapping("/api/boards")
 @CrossOrigin(origins = "*")
 public class BoardController {
+
+    private static final Logger log = LoggerFactory.getLogger(BoardController.class);
     
     @Autowired
     private BoardService boardService;
@@ -47,6 +57,16 @@ public class BoardController {
 
     @Autowired
     private BoardRepository boardRepo;
+
+    // For broadcasting chat messages in real-time
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private ChatMessageRepository chatMessageRepository;
+
+    @Autowired
+    private NotificationClient notificationClient;
     
     /**
      * Create a new board
@@ -328,6 +348,164 @@ public class BoardController {
     @GetMapping("/count")
     public ResponseEntity<Long> getTotalBoards() {
         return ResponseEntity.ok(boardService.getTotalCount());
+    }
+
+    // ========== CHAT ENDPOINTS ==========
+
+    /**
+     * Get chat history - returns last 50 messages, oldest first
+     */
+    @GetMapping({"/v1/{boardId}/chat", "/{boardId}/chat"})
+    public ResponseEntity<?> getChatHistory(@PathVariable Long boardId,
+                                            @RequestHeader("X-User-Id") Long userId) {
+        try {
+            log.info("Loading chat history for board {}", boardId);
+            
+            // Only board members can chat here
+            if (!memberRepo.existsByBoardIdAndUserId(boardId, userId)) {
+                log.warn("Access Denied: User {} is not a member of board {}", userId, boardId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access Denied - You are not a board member"));
+            }
+
+            // Fetch last 50 desc, then reverse so oldest is first in the UI
+            List<ChatMessage> messages = chatMessageRepository.findTop50ByBoardIdOrderByCreatedAtDesc(boardId);
+            Collections.reverse(messages);
+            return ResponseEntity.ok(messages);
+        } catch (Exception e) {
+            log.error("Couldn't load chat for board {}: {}", boardId, e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * Send a new chat message, save it, and broadcast via WebSocket
+     */
+    @PostMapping({"/v1/{boardId}/chat", "/{boardId}/chat"})
+    public ResponseEntity<?> sendChatMessage(@PathVariable Long boardId,
+                                             @RequestBody Map<String, String> body,
+                                             @RequestHeader("X-User-Id") Long userId,
+                                             @RequestHeader("Authorization") String token) {
+        try {
+            // Only board members can chat here
+            if (!memberRepo.existsByBoardIdAndUserId(boardId, userId)) {
+                log.warn("Access Denied: User {} is not a member of board {}", userId, boardId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access Denied - You are not a board member"));
+            }
+
+            String content = body.get("content");
+            if (content == null || content.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(errorResponse("Message content cannot be empty"));
+            }
+
+            // Get sender profile details from Auth Service
+            String senderDisplayName = "User " + userId;
+            String senderAvatarUrl = null;
+            try {
+                Map<String, Object> userProfile = authClient.getInternalUserById(userId);
+                if (userProfile != null) {
+                    if (userProfile.containsKey("fullName") && userProfile.get("fullName") != null) {
+                        senderDisplayName = (String) userProfile.get("fullName");
+                    } else if (userProfile.containsKey("name") && userProfile.get("name") != null) {
+                        senderDisplayName = (String) userProfile.get("name");
+                    } else if (userProfile.containsKey("username") && userProfile.get("username") != null) {
+                        senderDisplayName = (String) userProfile.get("username");
+                    }
+                    if (userProfile.containsKey("avatar") && userProfile.get("avatar") != null) {
+                        senderAvatarUrl = (String) userProfile.get("avatar");
+                    } else if (userProfile.containsKey("avatarUrl") && userProfile.get("avatarUrl") != null) {
+                        senderAvatarUrl = (String) userProfile.get("avatarUrl");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Could not fetch user profile from Auth Service: {}", e.getMessage());
+            }
+
+            // Build the message entity
+            ChatMessage message = new ChatMessage();
+            message.setBoardId(boardId);
+            message.setSenderId(userId);
+            message.setSenderName(senderDisplayName);
+            message.setSenderAvatar(senderAvatarUrl);
+            message.setContent(content.trim());
+            message.setCreatedAt(LocalDateTime.now());
+
+            // Persist to DB first
+            ChatMessage saved = chatMessageRepository.save(message);
+            log.info("Chat message saved with ID: {}", saved.getId());
+
+            // Broadcast to all WebSocket subscribers of this board's chat topic
+            try {
+                messagingTemplate.convertAndSend("/topic/board/" + boardId + "/chat", saved);
+                log.info("Chat message broadcast to board {}", boardId);
+            } catch (Exception ex) {
+                log.error("Failed to broadcast chat message to board {}: {}", boardId, ex.getMessage());
+            }
+
+            // Send notification to other board members (supporting @mentions)
+            try {
+                Board board = boardRepo.findById(boardId).orElse(null);
+                String boardName = board != null ? board.getName() : "Board " + boardId;
+                
+                List<BoardMember> members = memberRepo.findByBoardId(boardId);
+                for (BoardMember member : members) {
+                    // Skip the sender (don't notify yourself)
+                    if (member.getUserId().equals(userId)) {
+                        continue;
+                    }
+                    
+                    boolean isMentioned = false;
+                    if (content.contains("@")) {
+                        try {
+                            Map<String, Object> memberProfile = authClient.getInternalUserById(member.getUserId());
+                            if (memberProfile != null) {
+                                String username = (String) memberProfile.get("username");
+                                String fullName = (String) memberProfile.get("fullName");
+                                
+                                if (username != null && content.toLowerCase().contains("@" + username.toLowerCase())) {
+                                    isMentioned = true;
+                                } else if (fullName != null && content.toLowerCase().contains("@" + fullName.toLowerCase().replace(" ", "").toLowerCase())) {
+                                    isMentioned = true;
+                                } else if (fullName != null && content.toLowerCase().contains("@" + fullName.toLowerCase())) {
+                                    isMentioned = true;
+                                }
+                            }
+                        } catch (Exception ex) {
+                            log.warn("Failed to check mention for board member {}: {}", member.getUserId(), ex.getMessage());
+                        }
+                    }
+                    
+                    Map<String, Object> notifRequest = new HashMap<>();
+                    notifRequest.put("recipientId", member.getUserId());
+                    notifRequest.put("actorId", userId);
+                    notifRequest.put("actorName", senderDisplayName);
+                    notifRequest.put("relatedId", boardId);
+                    notifRequest.put("relatedType", "BOARD");
+                    notifRequest.put("deepLink", "/board/" + boardId);
+                    
+                    if (isMentioned) {
+                        notifRequest.put("type", "MENTION");
+                        notifRequest.put("title", "You were mentioned in board chat");
+                        notifRequest.put("message", senderDisplayName + " mentioned you in " + boardName + ": \"" + content + "\"");
+                        log.info("Dispatched MENTION notification to user {}", member.getUserId());
+                    } else {
+                        notifRequest.put("type", "CHAT_MESSAGE");
+                        notifRequest.put("title", "New message in board chat");
+                        notifRequest.put("message", senderDisplayName + " sent a message in " + boardName);
+                    }
+                    
+                    notificationClient.sendNotification(notifRequest);
+                }
+            } catch (Exception e) {
+                log.error("Failed to send real-time chat notifications: {}", e.getMessage());
+            }
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+        } catch (Exception e) {
+            log.error("Failed to send chat message for board {}: {}", boardId, e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse(e.getMessage()));
+        }
     }
 
     // Quick error response helper

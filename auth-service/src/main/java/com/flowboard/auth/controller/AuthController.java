@@ -72,6 +72,16 @@ public class AuthController {
             return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
         }
     }
+
+    @GetMapping("/internal/users/{id}")
+    public ResponseEntity<?> getInternalUserById(@PathVariable Long id) {
+        try {
+            UserResponse userResponse = authService.getUserById(id);
+            return ResponseEntity.ok(userResponse);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(e.getMessage(), false));
+        }
+    }
     
     @GetMapping("/users/email/{email}")
     @PreAuthorize("isAuthenticated()")

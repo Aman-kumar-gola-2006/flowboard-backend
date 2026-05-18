@@ -86,6 +86,10 @@ spring:
           uri: lb:ws://notification-service
           predicates:
             - Path=/ws/**
+        - id: board-websocket
+          uri: lb:ws://board-service
+          predicates:
+            - Path=/ws-board/**
 
 server:
   port: 8080

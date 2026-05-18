@@ -11,4 +11,7 @@ public interface AuthClient {
     
     @GetMapping("/users/{id}")
     Map<String, Object> getUserById(@PathVariable("id") Long id, @RequestHeader("Authorization") String token);
+
+    @GetMapping("/internal/users/{id}")
+    Map<String, Object> getInternalUserById(@PathVariable("id") Long id);
 }

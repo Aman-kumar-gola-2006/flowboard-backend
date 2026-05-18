@@ -13,6 +13,6 @@ public interface AuthClient {
     @GetMapping("/users/email")
     Map<String, Object> getUserByEmail(@RequestParam("email") String email);
 
-    @GetMapping("/users/{id}")
+    @GetMapping("/internal/users/{id}")
     Map<String, Object> getUserById(@PathVariable("id") Long id);
 }
