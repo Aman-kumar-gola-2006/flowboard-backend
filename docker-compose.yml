@@ -1,5 +1,6 @@
-services:
+version: '3.8'
 
+services:
   mysql:
     image: mysql:8
     container_name: mysql
@@ -7,20 +8,19 @@ services:
       MYSQL_ROOT_PASSWORD: "05092006"
       MYSQL_DATABASE: flowboard
     ports:
-      - "3306:3306"
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - flowboard-network
 
   eureka-server:
     build: ./eureka-server
     container_name: eureka-server
     ports:
       - "8761:8761"
+    networks:
+      - flowboard-network
 
   gateway-service:
     build: ./gateway-service
@@ -29,11 +29,13 @@ services:
       - "8080:8080"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=gateway-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_gateway?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+    networks:
+      - flowboard-network
 
   auth-service:
     build: ./auth-service
@@ -42,17 +44,16 @@ services:
       - "8081:8081"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=auth-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_auth?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
       - APP_FRONTEND_URL=http://localhost:4200
-      - JAVA_TOOL_OPTIONS=-Dapp.frontend.url=http://localhost:4200
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
-      - rabbitmq
+    networks:
+      - flowboard-network
 
   workspace-service:
     build: ./workspace-service
@@ -61,14 +62,15 @@ services:
       - "8082:8082"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=workspace-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_workspace?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
-      - rabbitmq
+    networks:
+      - flowboard-network
 
   board-service:
     build: ./board-service
@@ -77,14 +79,15 @@ services:
       - "8083:8083"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=board-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_board?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
-      - rabbitmq
+    networks:
+      - flowboard-network
 
   list-service:
     build: ./list-service
@@ -93,14 +96,15 @@ services:
       - "8084:8084"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=list-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_list?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
-      - rabbitmq
+    networks:
+      - flowboard-network
 
   card-service:
     build: ./card-service
@@ -109,14 +113,15 @@ services:
       - "8085:8085"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=card-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_card?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
-      - rabbitmq
+    networks:
+      - flowboard-network
 
   comment-service:
     build: ./comment-service
@@ -125,41 +130,54 @@ services:
       - "8086:8086"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=comment-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_comment?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
-      - rabbitmq
+    networks:
+      - flowboard-network
 
   notification-service:
     build: ./notification-service
     container_name: notification-service
     ports:
-      - "8087:8087"
+      - "8088:8088"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=notification-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_notification?createDatabaseIfNotExist=true
-      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
-      - rabbitmq
+      - gateway-service
       - mysql
+    networks:
+      - flowboard-network
 
   payment-service:
     build: ./payment-service
     container_name: payment-service
     ports:
-      - "8088:8088"
+      - "8089:8089"
     environment:
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
-      - EUREKA_INSTANCE_HOSTNAME=payment-service
-      - EUREKA_INSTANCE_PREFER_IP_ADDRESS=false
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/flowboard_payment?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=05092006
     depends_on:
       - eureka-server
+      - gateway-service
       - mysql
+    networks:
+      - flowboard-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  flowboard-network:
+    driver: bridge
